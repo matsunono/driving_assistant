@@ -152,6 +152,15 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  function removeConfig(projectId: string, configId: string) {
+    const project = projects.value.find((item) => item.id === projectId)
+    if (!project) {
+      return
+    }
+
+    project.configs = project.configs.filter((config) => config.id !== configId)
+  }
+
   return {
     projects,
     selectedProjectId,
@@ -166,5 +175,6 @@ export const useProjectStore = defineStore('project', () => {
     createConfigForProject,
     updateConfig,
     toggleConfigEnabled,
+    removeConfig,
   }
 })

@@ -197,6 +197,7 @@ interface Project {
   name: string;         // 例: "ドライブ用ヌヌちゃん"
   description: string;
   starred: boolean;
+  enabled: boolean;
   configs: Config[];    // このプロジェクトに紐づく設定ファイル一覧
 }
 ```
@@ -222,6 +223,7 @@ interface Config {
   targetPath: string;         // 再生対象のファイルまたはフォルダパス
   playbackMode: "random" | "sequential";
   audioDucking: boolean;      // BGM音量を下げて再生するか
+  enabled: boolean;
 }
 ```
 
@@ -365,38 +367,50 @@ BottomNavigation
 
 UI実装メモ:
 
-- ホーム/プロジェクト一覧の各プロジェクト行には、最低限「編集ボタン」と「有効/無効トグル」を配置する。
-- 設定ファイル一覧の各行にも同様に「編集ボタン」と「有効/無効トグル」を配置する。
-- ヘッダーは中央タイトルを優先し、補助バッジやアイコンが視覚的に勝ちすぎないサイズバランスにする。
+- ホーム/プロジェクト一覧/設定ファイル一覧の各行は、右側を「三点メニュー + 有効/無効トグル」で統一する。
+- 三点メニュー押下時に「編集・削除」を表示し、編集は詳細/編集画面へ遷移する。
+- 削除は即時実行せず、確認モーダルで「はい」を押した場合のみ実行する。
+- ヘッダーは中央タイトルを優先し、左右アクション有無に関係なくタイトルが中央に見える固定幅レイアウトを使う。
 ```
 
 ---
 
 ## 開発ロードマップ
 
-### Phase 1: PoC（Vue + Capacitor基盤）
+### Phase 0: 画面先行（現在）
 
-- Capacitorプロジェクトのセットアップ
-- ローカルMP3の再生確認
-- タイマー動作確認（フォアグラウンド）
+- モック準拠で画面を先に整える（一覧、詳細、設定）
+- 一覧行の操作導線を確定する（三点メニュー -> 編集/削除 -> 確認モーダル）
+- 画面ごとのレイアウト・タイポ・余白を先に固める
 
-### Phase 2: MVP
+### Phase 1: 画面に処理を接続
 
-- ForegroundServiceによるバックグラウンド再生
-- Audio Ducking実装
-- プロジェクト・設定ファイルのUI実装（モック準拠）
-- ローカルストレージへのデータ永続化
+- プロジェクト/設定ファイルのCRUDを各画面導線に接続
+- トグル・編集遷移・削除確認の挙動を実装
+- 単体テストで主要導線（編集・削除・トグル）を固定化
 
-### Phase 3: Android Auto対応
+### Phase 2: Capacitor導入 + Androidプロジェクト生成
 
-- MediaSession / MediaBrowserService実装
-- Android Auto UIでの基本操作（再生・停止）
+- Capacitor導入、`npx cap add android` で Android プロジェクトを生成
+- WebView で既存 Vue UI が動作することを確認
+- 必要な権限・通知チャンネル・ビルド設定の土台を整備
 
-### Phase 4: 品質向上
+### Phase 3: project/config の永続化
 
-- 再生履歴
-- エラーハンドリング改善
-- バッテリー消費最適化
+- まずは JSON ベースのローカル永続化を実装
+- アプリ再起動時に project/config 状態を復元
+- データ破損時のフォールバック（初期データ復元）を追加
+
+### Phase 4: 再生エンジン（本筋）
+
+- ForegroundService によるバックグラウンド再生
+- Audio Ducking 実装
+- タイマー/アラームトリガーからのキュー再生制御
+
+### Phase 5: Android Auto対応・品質向上
+
+- MediaSession / MediaBrowserService 実装
+- 再生履歴、エラーハンドリング、バッテリー最適化
 
 ---
 

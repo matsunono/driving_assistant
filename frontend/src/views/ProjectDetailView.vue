@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { faPenToSquare, faStar } from '@fortawesome/free-solid-svg-icons'
+import { faStar } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import ConfirmModal from '../components/common/ConfirmModal.vue'
+import RowActionMenu from '../components/common/RowActionMenu.vue'
 
 import { useProjectStore } from '../stores/project'
 
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
+const pendingDelete = ref<{ configId: string; configName: string } | null>(null)
 
 const projectId = computed(() => String(route.params.projectId ?? ''))
 const project = computed(() => projectStore.projects.find((item) => item.id === projectId.value) ?? null)
@@ -19,6 +22,23 @@ function openConfig(configId: string) {
 
 function toggleConfigEnabled(configId: string) {
   projectStore.toggleConfigEnabled(projectId.value, configId)
+}
+
+function requestDeleteConfig(configId: string, configName: string) {
+  pendingDelete.value = { configId, configName }
+}
+
+function cancelDeleteConfig() {
+  pendingDelete.value = null
+}
+
+function confirmDeleteConfig() {
+  if (!pendingDelete.value) {
+    return
+  }
+
+  projectStore.removeConfig(projectId.value, pendingDelete.value.configId)
+  pendingDelete.value = null
 }
 </script>
 
@@ -44,13 +64,11 @@ function toggleConfigEnabled(configId: string) {
             <div class="flex items-center justify-between gap-2">
               <strong class="truncate text-[15px] font-bold text-base-content">{{ config.name }}</strong>
               <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  class="btn btn-square btn-sm border-none bg-neutral text-neutral-content shadow-none"
-                  @click.stop="openConfig(config.id)"
-                >
-                  <FontAwesomeIcon :icon="faPenToSquare" />
-                </button>
+                <RowActionMenu
+                  menu-label="設定アクションを開く"
+                  @edit="openConfig(config.id)"
+                  @delete="requestDeleteConfig(config.id, config.name)"
+                />
                 <input
                   :checked="config.enabled"
                   type="checkbox"
@@ -65,6 +83,16 @@ function toggleConfigEnabled(configId: string) {
       </button>
       </div>
     </div>
+
+    <ConfirmModal
+      :open="Boolean(pendingDelete)"
+      title="設定ファイルを削除しますか？"
+      :message="pendingDelete ? `「${pendingDelete.configName}」を削除します。この操作は取り消せません。` : ''"
+      confirm-label="はい"
+      cancel-label="いいえ"
+      @confirm="confirmDeleteConfig"
+      @cancel="cancelDeleteConfig"
+    />
   </section>
 
   <section v-else class="mx-auto max-w-md rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)]">

@@ -70,7 +70,7 @@ function openFilter() {
       </div>
     </div>
     <div class="mx-auto mt-1 flex w-full max-w-md justify-center">
-      <p class="text-[0.65rem] font-medium uppercase tracking-[0.26em] text-base-content/45">Sound Up</p>
+      <p class="text-[0.65rem] font-medium uppercase tracking-[0.26em] text-base-content/45">Sound App</p>
     </div>
   </header>
 </template>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { faPenToSquare, faStar } from '@fortawesome/free-solid-svg-icons'
+import { faStar } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import ConfirmModal from '../components/common/ConfirmModal.vue'
+import RowActionMenu from '../components/common/RowActionMenu.vue'
 
 // import { usePlaybackStore } from '../stores/playback'
 import { useProjectStore } from '../stores/project'
@@ -10,6 +12,7 @@ import { useProjectStore } from '../stores/project'
 const projectStore = useProjectStore()
 // const playbackStore = usePlaybackStore()
 const router = useRouter()
+const pendingDelete = ref<{ projectId: string; projectName: string } | null>(null)
 
 const recentProjects = computed(() => projectStore.projects.slice(0, 6))
 
@@ -24,6 +27,23 @@ function editProject(projectId: string) {
 
 function toggleProjectEnabled(projectId: string) {
   projectStore.toggleProjectEnabled(projectId)
+}
+
+function requestDeleteProject(projectId: string, projectName: string) {
+  pendingDelete.value = { projectId, projectName }
+}
+
+function cancelDeleteProject() {
+  pendingDelete.value = null
+}
+
+function confirmDeleteProject() {
+  if (!pendingDelete.value) {
+    return
+  }
+
+  projectStore.removeProject(pendingDelete.value.projectId)
+  pendingDelete.value = null
 }
 </script>
 
@@ -47,13 +67,11 @@ function toggleProjectEnabled(projectId: string) {
             <div class="flex items-center justify-between gap-2">
               <strong class="truncate text-[15px] font-bold text-base-content">{{ project.name }}</strong>
               <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  class="btn btn-square btn-sm border-none bg-neutral text-neutral-content shadow-none"
-                  @click.stop="editProject(project.id)"
-                >
-                  <FontAwesomeIcon :icon="faPenToSquare" />
-                </button>
+                <RowActionMenu
+                  menu-label="プロジェクトアクションを開く"
+                  @edit="editProject(project.id)"
+                  @delete="requestDeleteProject(project.id, project.name)"
+                />
                 <input
                   :checked="project.enabled"
                   type="checkbox"
@@ -90,5 +108,15 @@ function toggleProjectEnabled(projectId: string) {
         </li>
       </ul>
     </div> -->
+
+    <ConfirmModal
+      :open="Boolean(pendingDelete)"
+      title="プロジェクトを削除しますか？"
+      :message="pendingDelete ? `「${pendingDelete.projectName}」を削除します。この操作は取り消せません。` : ''"
+      confirm-label="はい"
+      cancel-label="いいえ"
+      @confirm="confirmDeleteProject"
+      @cancel="cancelDeleteProject"
+    />
   </section>
 </template>

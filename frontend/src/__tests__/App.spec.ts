@@ -22,6 +22,6 @@ describe('App', () => {
     })
 
     expect(wrapper.text()).toContain('さうんどあっぷ')
-    expect(wrapper.text()).toContain('Sound Up')
+    expect(wrapper.text()).toContain('Sound App')
   })
 })
