@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
+import { faHouse, faFolder, faGear } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 const router = useRouter()
 const route = useRoute()
 
 const tabs = [
-  { label: 'ホーム', path: '/' },
-  { label: 'プロジェクト', path: '/projects' },
-  { label: '設定', path: '/settings' },
+  { label: 'Home', path: '/', icon: faHouse },
+  { label: 'Projects', path: '/projects', icon: faFolder },
+  { label: 'Settings', path: '/settings', icon: faGear },
 ]
 
 function navigate(path: string) {
@@ -18,7 +20,7 @@ function navigate(path: string) {
 </script>
 
 <template>
-  <nav class="bottom-nav" aria-label="主要ナビゲーション">
+  <nav class="bottom-nav" aria-label="Main Navigation">
     <button
       v-for="tab in tabs"
       :key="tab.path"
@@ -28,6 +30,7 @@ function navigate(path: string) {
       @click="navigate(tab.path)"
     >
       {{ tab.label }}
+      <FontAwesomeIcon :icon="tab.icon" />
     </button>
   </nav>
 </template>

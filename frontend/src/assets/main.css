@@ -1,3 +1,6 @@
+@import "tailwindcss"
+@plugin "daisyui"
+
 :root {
   color-scheme: light;
   --bg: #f5f1e8;
