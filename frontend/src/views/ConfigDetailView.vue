@@ -44,7 +44,7 @@ const config = computed(() => project.value?.configs.find((item) => item.id === 
 
         <div class="grid grid-cols-[96px_1fr] items-center gap-3">
           <span class="font-semibold text-base-content/75">タイマー終了時/アラーム時の操作</span>
-          <div class="flex items-center justify-between rounded-2xl border border-base-300 bg-white px-4 py-3">
+          <div class="flex items-center justify-between">
             <span class="text-base-content/45">ONで操作が必要になります</span>
             <input :checked="config.requireActionOnEnd" type="checkbox" class="toggle border-neutral/20 bg-neutral-content/20 text-neutral" />
           </div>
@@ -52,16 +52,13 @@ const config = computed(() => project.value?.configs.find((item) => item.id === 
 
         <div class="grid grid-cols-[96px_1fr] items-center gap-3">
           <span class="font-semibold text-base-content/75">再生対象</span>
-          <div class="flex items-center gap-2 rounded-2xl border border-base-300 bg-white px-4 py-3 text-base-content/45">
-            <span class="flex-1 truncate">ファイルまたはフォルダを選択してください</span>
-            <span class="text-lg">⌕</span>
-          </div>
+          <input type="file" class="file-input" />
         </div>
 
         <div class="grid grid-cols-[96px_1fr] items-center gap-3">
           <span class="font-semibold text-base-content/75">再生方法</span>
           <select class="select select-bordered h-11 w-full rounded-2xl" :value="config.playbackMode">
-            <option value="random">ランダムまたは順番再生を選択してください</option>
+            <option value="random">ランダムまたは順番再生を選択</option>
             <option value="random">ランダム</option>
             <option value="sequential">順番再生</option>
           </select>
