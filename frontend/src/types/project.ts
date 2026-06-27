@@ -5,5 +5,6 @@ export interface Project {
   name: string
   description: string
   starred: boolean
+  enabled: boolean
   configs: Config[]
 }

@@ -37,6 +37,11 @@
 | ネイティブ拡張 | Capacitor Plugin（Kotlin） | バックグラウンド再生・Audio Duckingなど必要箇所のみ |
 | ビルド環境 | Android Studio（Windows/Linux可） | Xcode不要、Mac不要 |
 
+補足:
+
+- UI スタイリングは Tailwind CSS + daisyUI を採用する。Capacitor は WebView 上で Vue アプリを描画するため、daisyUI のような CSS ベースの UI ライブラリも利用可能。
+- 画面実装では scoped style への個別依存を避け、utility class 主体でレイアウトを組む。
+
 ### Capacitorを選ぶ理由
 
 - Vue/TypeScript/FastAPIの既存スキルをそのまま活用できる
@@ -357,6 +362,12 @@ BottomNavigation
         - 再生対象ファイル選択
         - 再生方法設定
         - Audio Ducking ON/OFF
+
+UI実装メモ:
+
+- ホーム/プロジェクト一覧の各プロジェクト行には、最低限「編集ボタン」と「有効/無効トグル」を配置する。
+- 設定ファイル一覧の各行にも同様に「編集ボタン」と「有効/無効トグル」を配置する。
+- ヘッダーは中央タイトルを優先し、補助バッジやアイコンが視覚的に勝ちすぎないサイズバランスにする。
 ```
 
 ---

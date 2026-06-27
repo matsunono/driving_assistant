@@ -28,6 +28,7 @@ const initialProjects: Project[] = [
     name: 'ドライブ用ヌヌちゃん',
     description: '運転中に休憩や注意喚起を届ける設定集',
     starred: true,
+    enabled: true,
     configs: [
       createConfig('drive', {
         id: 'drive-rest',
@@ -50,6 +51,7 @@ const initialProjects: Project[] = [
     name: 'ポモドーロBGM',
     description: '作業と休憩を切り替えるタイマー設定',
     starred: false,
+    enabled: false,
     configs: [
       createConfig('work', {
         id: 'work-break',
@@ -81,6 +83,7 @@ export const useProjectStore = defineStore('project', () => {
       name,
       description,
       starred: false,
+      enabled: false,
       configs: [],
     }
 
@@ -110,6 +113,13 @@ export const useProjectStore = defineStore('project', () => {
     const project = projects.value.find((item) => item.id === projectId)
     if (project) {
       project.starred = !project.starred
+    }
+  }
+
+  function toggleProjectEnabled(projectId: string) {
+    const project = projects.value.find((item) => item.id === projectId)
+    if (project) {
+      project.enabled = !project.enabled
     }
   }
 
@@ -152,6 +162,7 @@ export const useProjectStore = defineStore('project', () => {
     updateProject,
     removeProject,
     toggleProjectStar,
+    toggleProjectEnabled,
     createConfigForProject,
     updateConfig,
     toggleConfigEnabled,

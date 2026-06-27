@@ -1,44 +1,53 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+
+const theme = ref<'soundup' | 'cupcake'>('soundup')
+
+watch(
+  theme,
+  (value) => {
+    document.documentElement.setAttribute('data-theme', value)
+  },
+  { immediate: true },
+)
+</script>
+
 <template>
-  <section class="page-card page-section settings-page">
-    <p class="eyebrow">Settings</p>
-    <h2 class="heading">アプリ設定</h2>
-    <p class="subtle">再生通知、権限、バックグラウンド動作の設定をここに集約します。</p>
+  <section class="mx-auto flex w-full max-w-md flex-col gap-4">
+    <div class="rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)] backdrop-blur">
+      <p class="text-sm text-base-content/40">Settings</p>
+      <h2 class="mt-1 text-xl font-bold text-base-content">アプリ設定</h2>
+      <p class="mt-1 text-sm text-base-content/45">再生通知、権限、バックグラウンド動作をここで管理します。</p>
 
-    <div class="settings-list">
-      <div class="settings-list__item">
-        <strong>ForegroundService</strong>
-        <p>再生状態の正をネイティブ側で管理します。</p>
-      </div>
+      <div class="mt-4 space-y-3">
+        <div class="rounded-2xl border border-base-300 bg-white p-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="font-semibold text-base-content">テーマカラー</p>
+              <p class="text-sm text-base-content/45">daisyUI のテーマを WebView 上で切り替えます</p>
+            </div>
+            <select v-model="theme" class="select select-bordered rounded-2xl">
+              <option value="soundup">Sound Up</option>
+              <option value="cupcake">Cupcake</option>
+            </select>
+          </div>
+        </div>
 
-      <div class="settings-list__item">
-        <strong>Audio Ducking</strong>
-        <p>外部音楽再生時に音量を下げて音声を重ねます。</p>
-      </div>
+        <div class="rounded-2xl border border-base-300 bg-white p-4">
+          <strong class="text-base-content">ForegroundService</strong>
+          <p class="mt-1 text-sm text-base-content/45">再生状態の正をネイティブ側で管理します。</p>
+        </div>
 
-      <div class="settings-list__item">
-        <strong>SAF</strong>
-        <p>ローカルファイルとフォルダの選択を許可します。</p>
+        <div class="rounded-2xl border border-base-300 bg-white p-4">
+          <strong class="text-base-content">Audio Ducking</strong>
+          <p class="mt-1 text-sm text-base-content/45">外部音楽再生時に音量を下げて音声を重ねます。</p>
+        </div>
+
+        <div class="rounded-2xl border border-base-300 bg-white p-4">
+          <strong class="text-base-content">SAF</strong>
+          <p class="mt-1 text-sm text-base-content/45">ローカルファイルとフォルダの選択を許可します。</p>
+        </div>
       </div>
     </div>
   </section>
 </template>
-
-<style scoped>
-.settings-list {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.settings-list__item {
-  padding: 1rem;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(24, 22, 21, 0.08);
-}
-
-.settings-list__item p {
-  margin: 0.35rem 0 0;
-  color: var(--muted);
-}
-</style>

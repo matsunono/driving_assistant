@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { faPenToSquare, faStar } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 import { useProjectStore } from '../stores/project'
 
@@ -14,77 +16,58 @@ const project = computed(() => projectStore.projects.find((item) => item.id === 
 function openConfig(configId: string) {
   router.push(`/projects/${projectId.value}/configs/${configId}`)
 }
+
+function toggleConfigEnabled(configId: string) {
+  projectStore.toggleConfigEnabled(projectId.value, configId)
+}
 </script>
 
 <template>
-  <section class="page-card page-section" v-if="project">
-    <p class="eyebrow">Project detail</p>
-    <h2 class="heading">{{ project.name }}</h2>
-    <p class="subtle">{{ project.description }}</p>
+  <section v-if="project" class="mx-auto flex w-full max-w-md flex-col gap-4">
+    <div class="rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)] backdrop-blur">
+      <p class="text-sm text-base-content/40">Files</p>
+      <h2 class="mt-1 text-xl font-bold text-base-content">{{ project.name }}</h2>
+      <p class="mt-1 text-sm text-base-content/45">設定ファイル一覧</p>
 
-    <div class="config-list">
-      <button
+      <div class="mt-4 space-y-3">
+        <button
         v-for="config in project.configs"
         :key="config.id"
         type="button"
-        class="config-card"
+        class="flex w-full items-start gap-3 rounded-2xl border border-base-300 bg-white px-3 py-3 text-left"
         @click="openConfig(config.id)"
       >
-        <div class="config-card__row">
-          <strong>{{ config.name }}</strong>
-          <span :class="config.enabled ? 'pill pill--on' : 'pill'">
-            {{ config.enabled ? 'ON' : 'OFF' }}
+          <span class="pt-1 text-base-content/70">
+            <FontAwesomeIcon :icon="faStar" class="text-sm" />
           </span>
-        </div>
-        <p>{{ config.description }}</p>
-        <small>{{ config.playbackMode }} / {{ config.audioDucking ? 'ducking' : 'normal' }}</small>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <strong class="truncate text-[15px] font-bold text-base-content">{{ config.name }}</strong>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="btn btn-square btn-sm border-none bg-neutral text-neutral-content shadow-none"
+                  @click.stop="openConfig(config.id)"
+                >
+                  <FontAwesomeIcon :icon="faPenToSquare" />
+                </button>
+                <input
+                  :checked="config.enabled"
+                  type="checkbox"
+                  class="toggle toggle-sm border-neutral/20 bg-neutral-content/20 text-neutral"
+                  @click.stop
+                  @change="toggleConfigEnabled(config.id)"
+                />
+              </div>
+            </div>
+            <p class="mt-1 text-sm text-base-content/45">{{ config.description }}</p>
+          </div>
       </button>
+      </div>
     </div>
   </section>
 
-  <section v-else class="page-card page-section">
-    <h2 class="heading">プロジェクトが見つかりません</h2>
+  <section v-else class="mx-auto max-w-md rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)]">
+    <h2 class="text-lg font-bold text-base-content">プロジェクトが見つかりません</h2>
   </section>
 </template>
-
-<style scoped>
-.config-list {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.config-card {
-  padding: 1rem;
-  border: 1px solid rgba(24, 22, 21, 0.08);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.92);
-  text-align: left;
-}
-
-.config-card__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.config-card p,
-.config-card small {
-  display: block;
-  margin: 0.35rem 0 0;
-  color: var(--muted);
-}
-
-.pill {
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(24, 22, 21, 0.08);
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.pill--on {
-  background: rgba(13, 127, 88, 0.14);
-  color: var(--success);
-}
-</style>

@@ -1,5 +1,39 @@
-@import "tailwindcss"
-@plugin "daisyui"
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: soundup --default, cupcake;
+}
+
+@plugin "daisyui/theme" {
+  name: "soundup";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: oklch(98% 0.012 80);
+  --color-base-200: oklch(95% 0.014 80);
+  --color-base-300: oklch(90% 0.018 80);
+  --color-base-content: oklch(19% 0.01 70);
+  --color-primary: oklch(21% 0 0);
+  --color-primary-content: oklch(99% 0 0);
+  --color-secondary: oklch(60% 0.08 70);
+  --color-secondary-content: oklch(18% 0.01 70);
+  --color-accent: oklch(70% 0.12 80);
+  --color-accent-content: oklch(18% 0.01 70);
+  --color-neutral: oklch(26% 0 0);
+  --color-neutral-content: oklch(98% 0 0);
+  --color-info: oklch(61% 0.11 250);
+  --color-success: oklch(57% 0.12 165);
+  --color-warning: oklch(71% 0.15 75);
+  --color-error: oklch(58% 0.17 24);
+  --radius-selector: 1rem;
+  --radius-field: 1rem;
+  --radius-box: 1.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
 
 :root {
   color-scheme: light;
@@ -41,6 +75,11 @@ body {
   background: var(--bg);
 }
 
+body,
+#app {
+  color: var(--text);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -54,64 +93,4 @@ input,
 select,
 textarea {
   font: inherit;
-}
-
-.page-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-}
-
-.page-section {
-  margin-top: 1rem;
-  padding: 1rem;
-}
-
-.eyebrow {
-  margin: 0 0 0.25rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.heading {
-  margin: 0;
-  font-size: 1.25rem;
-  line-height: 1.2;
-}
-
-.subtle {
-  color: var(--muted);
-}
-
-.action-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.75rem;
-  padding: 0.75rem 1rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-}
-
-.field {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  padding: 0.85rem 0.95rem;
-  border: 1px solid rgba(24, 22, 21, 0.16);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--text);
 }

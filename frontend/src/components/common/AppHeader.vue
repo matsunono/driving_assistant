@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { faFilter, faAngleLeft } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,51 +30,36 @@ function goBack() {
 </script>
 
 <template>
-  <header class="app-header">
-    <button v-if="canGoBack" type="button" class="app-header__back" @click="goBack">戻る</button>
-    <div class="app-header__title-wrap">
-      <p class="eyebrow">Sound Up</p>
-      <h1 class="app-header__title">{{ title }}</h1>
+  <header class="sticky top-0 z-20 px-4 pb-3 pt-4 backdrop-blur-md">
+    <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
+      <button
+        v-if="canGoBack"
+        type="button"
+        class="btn btn-circle btn-ghost border border-base-300 bg-white/80 text-base-content"
+        @click="goBack"
+      >
+        <FontAwesomeIcon :icon="faAngleLeft" />
+      </button>
+      <div v-else class="w-9"></div>
+
+      <div class="min-w-0 flex-1 text-center">
+        <h1 class="truncate text-xl font-bold text-base-content">
+          {{ title }}
+        </h1>
+      </div>
+
+      <button
+        v-if="route.name !== 'config-detail' && route.name !== 'settings'"
+        type="button"
+        class="btn btn-circle btn-ghost border border-base-300 bg-white/80 text-base-content"
+        @click="$emit('open-filter')"
+      >
+        <FontAwesomeIcon :icon="faFilter" />
+      </button>
+      
     </div>
-    <span class="app-header__badge">β</span>
+    <div class="mx-auto mt-1 flex w-full max-w-md justify-center">
+      <p class="text-[0.65rem] font-medium uppercase tracking-[0.26em] text-base-content/45">Sound Up</p>
+    </div>
   </header>
 </template>
-
-<style scoped>
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1rem 0.75rem;
-  backdrop-filter: blur(16px);
-}
-
-.app-header__back,
-.app-header__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 3rem;
-  min-height: 3rem;
-  padding: 0 0.9rem;
-  border: 1px solid rgba(24, 22, 21, 0.12);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  color: var(--text);
-  font-weight: 700;
-}
-
-.app-header__title-wrap {
-  min-width: 0;
-}
-
-.app-header__title {
-  margin: 0;
-  font-size: 1.05rem;
-  line-height: 1.2;
-}
-</style>
