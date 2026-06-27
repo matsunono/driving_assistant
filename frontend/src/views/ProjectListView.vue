@@ -26,14 +26,16 @@ function toggleProjectEnabled(projectId: string) {
   <section class="mx-auto flex w-full max-w-md flex-col gap-4">
     <div class="flex items-center justify-between">
       <button class="btn btn-neutral rounded-full px-4 text-sm font-bold shadow-sm">新規作成</button>
-      <div class="text-right">
+      <!-- <div class="text-right">
         <p class="text-sm text-base-content/40">Projects</p>
         <h2 class="text-xl font-bold text-base-content">プロジェクト一覧</h2>
-      </div>
+      </div> -->
     </div>
 
     <div class="rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)] backdrop-blur">
-      <div class="space-y-3">
+      <p class="text-sm text-base-content/40">Projects</p>
+      <h2 class="mt-1 text-2xl font-bold text-base-content">プロジェクト一覧</h2>
+      <div class="mt-4 space-y-3">
         <button
           v-for="project in projectStore.projects"
           :key="project.id"
@@ -58,7 +60,7 @@ function toggleProjectEnabled(projectId: string) {
                 <input
                   :checked="project.enabled"
                   type="checkbox"
-                  class="toggle toggle-sm border-neutral/20 bg-neutral-content/20 text-neutral"
+                  class="toggle toggle-sm "
                   @click.stop
                   @change="toggleProjectEnabled(project.id)"
                 />

@@ -46,7 +46,7 @@ const config = computed(() => project.value?.configs.find((item) => item.id === 
           <span class="font-semibold text-base-content/75">タイマー終了時/アラーム時の操作</span>
           <div class="flex items-center justify-between">
             <span class="text-base-content/45">ONで操作が必要になります</span>
-            <input :checked="config.requireActionOnEnd" type="checkbox" class="toggle border-neutral/20 bg-neutral-content/20 text-neutral" />
+            <input :checked="config.requireActionOnEnd" type="checkbox" class="toggle" />
           </div>
         </div>
 

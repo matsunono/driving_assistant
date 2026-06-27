@@ -4,11 +4,11 @@ import { useRouter } from 'vue-router'
 import { faPenToSquare, faStar } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
-import { usePlaybackStore } from '../stores/playback'
+// import { usePlaybackStore } from '../stores/playback'
 import { useProjectStore } from '../stores/project'
 
 const projectStore = useProjectStore()
-const playbackStore = usePlaybackStore()
+// const playbackStore = usePlaybackStore()
 const router = useRouter()
 
 const recentProjects = computed(() => projectStore.projects.slice(0, 6))
@@ -57,7 +57,7 @@ function toggleProjectEnabled(projectId: string) {
                 <input
                   :checked="project.enabled"
                   type="checkbox"
-                  class="toggle toggle-sm border-neutral/20 bg-neutral-content/20 text-neutral"
+                  class="toggle toggle-sm"
                   @click.stop
                   @change="toggleProjectEnabled(project.id)"
                 />
@@ -69,7 +69,7 @@ function toggleProjectEnabled(projectId: string) {
       </div>
     </div>
 
-    <div class="rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)] backdrop-blur">
+    <!-- <div class="rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)] backdrop-blur">
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm text-base-content/40">Playback</p>
@@ -89,6 +89,6 @@ function toggleProjectEnabled(projectId: string) {
           </div>
         </li>
       </ul>
-    </div>
+    </div> -->
   </section>
 </template>

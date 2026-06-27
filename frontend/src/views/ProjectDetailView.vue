@@ -54,7 +54,7 @@ function toggleConfigEnabled(configId: string) {
                 <input
                   :checked="config.enabled"
                   type="checkbox"
-                  class="toggle toggle-sm border-neutral/20 bg-neutral-content/20 text-neutral"
+                  class="toggle toggle-sm "
                   @click.stop
                   @change="toggleConfigEnabled(config.id)"
                 />

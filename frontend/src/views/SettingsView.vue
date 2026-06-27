@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
-const theme = ref<'soundup' | 'cupcake'>('soundup')
+const themeOptions = [
+  { label: 'Sound Up', value: 'soundup' },
+  { label: 'Cupcake', value: 'cupcake' },
+] as const
+
+const theme = ref<(typeof themeOptions)[number]['value']>('soundup')
 
 watch(
   theme,
@@ -28,54 +31,14 @@ watch(
               <p class="font-semibold text-base-content">テーマカラー</p>
               <p class="text-sm text-base-content/45">daisyUI のテーマを WebView 上で切り替えます</p>
             </div>
-            <div class="dropdown">
-              <div tabindex="0" role="button" class="btn m-1 w-32">
-                テーマ
-                <FontAwesomeIcon :icon="faAngleDown" class="ml-2" />
-              </div>
-              <ul tabindex="-1" class="dropdown-content bg-base-300 rounded-box z-1 p-2 shadow-2xl">
-                <li>
-                  <input
-                    type="radio"
-                    name="theme-dropdown"
-                    class="theme-controller w-full btn btn-sm btn-block btn-ghost justify-start"
-                    aria-label="Default"
-                    value="default" />
-                </li>
-                <li>
-                  <input
-                    type="radio"
-                    name="theme-dropdown"
-                    class="theme-controller w-full btn btn-sm btn-block btn-ghost justify-start"
-                    aria-label="Retro"
-                    value="retro" />
-                </li>
-                <li>
-                  <input
-                    type="radio"
-                    name="theme-dropdown"
-                    class="theme-controller w-full btn btn-sm btn-block btn-ghost justify-start"
-                    aria-label="Cyberpunk"
-                    value="cyberpunk" />
-                </li>
-                <li>
-                  <input
-                    type="radio"
-                    name="theme-dropdown"
-                    class="theme-controller w-full btn btn-sm btn-block btn-ghost justify-start"
-                    aria-label="Valentine"
-                    value="valentine" />
-                </li>
-                <li>
-                  <input
-                    type="radio"
-                    name="theme-dropdown"
-                    class="theme-controller w-full btn btn-sm btn-block btn-ghost justify-start"
-                    aria-label="Aqua"
-                    value="aqua" />
-                </li>
-              </ul>
-            </div>
+            <select v-model="theme" class="select w-1/2 text-sm">
+                <option v-for="option in themeOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+            </select>
+            <!-- <label class="input input-bordered flex h-10 w-40 items-center gap-2 rounded-2xl">
+              
+            </label> -->
           </div>
         </div>
 
