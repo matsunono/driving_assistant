@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: soundup --default, cupcake;
+}
+
+@plugin "daisyui/theme" {
+  name: "soundup";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: oklch(98% 0.012 80);
+  --color-base-200: oklch(95% 0.014 80);
+  --color-base-300: oklch(90% 0.018 80);
+  --color-base-content: oklch(19% 0.01 70);
+  --color-primary: oklch(21% 0 0);
+  --color-primary-content: oklch(99% 0 0);
+  --color-secondary: oklch(60% 0.08 70);
+  --color-secondary-content: oklch(18% 0.01 70);
+  --color-accent: oklch(70% 0.12 80);
+  --color-accent-content: oklch(18% 0.01 70);
+  --color-neutral: oklch(26% 0 0);
+  --color-neutral-content: oklch(98% 0 0);
+  --color-info: oklch(61% 0.11 250);
+  --color-success: oklch(57% 0.12 165);
+  --color-warning: oklch(71% 0.15 75);
+  --color-error: oklch(58% 0.17 24);
+  --radius-selector: 1rem;
+  --radius-field: 1rem;
+  --radius-box: 1.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+:root {
+  color-scheme: light;
+  --bg: #f5f1e8;
+  --text: #181615;
+  font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic UI', 'Yu Gothic', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+}
+
+body,
+#app {
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
