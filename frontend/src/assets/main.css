@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: soundup --default, cupcake;
+  themes: soundapp --default, cupcake;
 }
 
 @plugin "daisyui/theme" {
-  name: "soundup";
+  name: "soundapp";
   default: true;
   prefersdark: false;
   color-scheme: light;

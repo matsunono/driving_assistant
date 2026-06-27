@@ -2,11 +2,11 @@
 import { ref, watch } from 'vue'
 
 const themeOptions = [
-  { label: 'Sound Up', value: 'soundup' },
+  { label: 'Sound App', value: 'soundapp' },
   { label: 'Cupcake', value: 'cupcake' },
 ] as const
 
-const theme = ref<(typeof themeOptions)[number]['value']>('soundup')
+const theme = ref<(typeof themeOptions)[number]['value']>('soundapp')
 
 watch(
   theme,
