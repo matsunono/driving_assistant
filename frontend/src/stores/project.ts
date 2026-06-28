@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 
 import type { Config } from '../types/config'
 import type { Project } from '../types/project'
-import { loadProjectsFromJson, saveProjectsToJson } from '../services/projectPersistence'
+import { exportProjectsSnapshot, loadProjectsFromJson, saveProjectsToJson } from '../services/projectPersistence'
 
 const createId = () => Math.random().toString(36).slice(2, 10)
 
@@ -90,6 +90,10 @@ export const useProjectStore = defineStore('project', () => {
 
     projects.value = persisted
     selectedProjectId.value = persisted[0]?.id ?? ''
+  }
+
+  function exportProjectsJson() {
+    return exportProjectsSnapshot(projects.value)
   }
 
   function selectProject(projectId: string) {
@@ -207,5 +211,6 @@ export const useProjectStore = defineStore('project', () => {
     removeConfig,
     persistProjects,
     hydrateProjects,
+    exportProjectsJson,
   }
 })

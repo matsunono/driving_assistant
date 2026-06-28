@@ -13,6 +13,9 @@ const projectStore = useProjectStore()
 const router = useRouter()
 const pendingDelete = ref<{ projectId: string; projectName: string } | null>(null)
 const pendingCreate = ref(false)
+const pendingExport = ref(false)
+const exportMessage = ref('')
+const exportError = ref('')
 
 function openProject(projectId: string) {
   projectStore.selectProject(projectId)
@@ -57,6 +60,24 @@ function confirmDeleteProject() {
   projectStore.removeProject(pendingDelete.value.projectId)
   pendingDelete.value = null
 }
+
+async function exportProjects() {
+  pendingExport.value = true
+  exportMessage.value = ''
+  exportError.value = ''
+
+  try {
+    const result = await projectStore.exportProjectsJson()
+    exportMessage.value =
+      result.mode === 'native'
+        ? `JSONを書き出しました: ${result.path ?? result.fileName}`
+        : `JSONを書き出しました（ダウンロード）: ${result.fileName}`
+  } catch {
+    exportError.value = 'JSONの書き出しに失敗しました'
+  } finally {
+    pendingExport.value = false
+  }
+}
 </script>
 
 <template>
@@ -68,10 +89,23 @@ function confirmDeleteProject() {
           <h2 class="mt-1 text-2xl font-bold text-base-content">プロジェクト一覧</h2>
         </div>
 
-        <button type="button" class="btn btn-neutral rounded-full px-4 text-sm font-bold shadow-sm" @click="openCreateProject">
-          新規作成
-        </button>
+        <div class="flex flex-col items-end gap-2">
+          <button type="button" class="btn btn-neutral rounded-full px-4 text-sm font-bold shadow-sm" @click="openCreateProject">
+            新規作成
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm rounded-full px-3"
+            :disabled="pendingExport"
+            @click="exportProjects"
+          >
+            JSON書き出し
+          </button>
+        </div>
       </div>
+
+      <p v-if="exportMessage" class="mt-2 text-xs text-success">{{ exportMessage }}</p>
+      <p v-if="exportError" class="mt-2 text-xs text-error">{{ exportError }}</p>
 
       <div class="mt-4 space-y-3">
         <button

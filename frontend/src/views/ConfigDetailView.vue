@@ -273,7 +273,7 @@ function saveConfig() {
   })
 
   form.value.targetPath = targetPath
-  saveMessage.value = '設定内容を更新しました（JSON書き出しは後続で実装）'
+  saveMessage.value = '設定内容を更新しました（JSONへ自動保存済み）'
 }
 </script>
 

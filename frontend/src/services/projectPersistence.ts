@@ -1,4 +1,5 @@
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem'
+import { Capacitor } from '@capacitor/core'
 
 import type { Project } from '../types/project'
 
@@ -11,6 +12,12 @@ interface PersistedProjectPayload {
   projects: Project[]
 }
 
+export interface ExportResult {
+  mode: 'native' | 'browser'
+  fileName: string
+  path?: string
+}
+
 function hasLocalStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
@@ -21,6 +28,17 @@ function buildPayload(projects: Project[]): PersistedProjectPayload {
     updatedAt: new Date().toISOString(),
     projects,
   }
+}
+
+function buildFileName() {
+  const now = new Date()
+  const yyyy = String(now.getFullYear())
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  const hh = String(now.getHours()).padStart(2, '0')
+  const min = String(now.getMinutes()).padStart(2, '0')
+  const sec = String(now.getSeconds()).padStart(2, '0')
+  return `projects-${yyyy}${mm}${dd}-${hh}${min}${sec}.json`
 }
 
 function parsePayload(raw: string): Project[] | null {
@@ -78,4 +96,38 @@ export async function loadProjectsFromJson() {
   }
 
   return parsePayload(fallback)
+}
+
+export async function exportProjectsSnapshot(projects: Project[]): Promise<ExportResult> {
+  const payload = JSON.stringify(buildPayload(projects), null, 2)
+  const fileName = buildFileName()
+
+  if (Capacitor.isNativePlatform()) {
+    const path = `soundup/export/${fileName}`
+
+    await Filesystem.writeFile({
+      path,
+      data: payload,
+      directory: Directory.Documents,
+      encoding: Encoding.UTF8,
+      recursive: true,
+    })
+
+    const uri = await Filesystem.getUri({ path, directory: Directory.Documents })
+    return { mode: 'native', fileName, path: uri.uri }
+  }
+
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    throw new Error('ブラウザ環境での書き出しに失敗しました')
+  }
+
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
+
+  return { mode: 'browser', fileName }
 }
