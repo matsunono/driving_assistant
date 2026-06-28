@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import type { Config } from '../types/config'
 import type { Project } from '../types/project'
+import { loadProjectsFromJson, saveProjectsToJson } from '../services/projectPersistence'
 
 const createId = () => Math.random().toString(36).slice(2, 10)
 
@@ -73,6 +74,24 @@ export const useProjectStore = defineStore('project', () => {
     () => projects.value.find((project) => project.id === selectedProjectId.value) ?? null,
   )
 
+  function persistProjects() {
+    return saveProjectsToJson(projects.value)
+  }
+
+  function queuePersistProjects() {
+    void persistProjects()
+  }
+
+  async function hydrateProjects() {
+    const persisted = await loadProjectsFromJson()
+    if (!persisted || persisted.length === 0) {
+      return
+    }
+
+    projects.value = persisted
+    selectedProjectId.value = persisted[0]?.id ?? ''
+  }
+
   function selectProject(projectId: string) {
     selectedProjectId.value = projectId
   }
@@ -89,6 +108,7 @@ export const useProjectStore = defineStore('project', () => {
 
     projects.value.unshift(project)
     selectedProjectId.value = project.id
+    queuePersistProjects()
     return project
   }
 
@@ -99,6 +119,7 @@ export const useProjectStore = defineStore('project', () => {
     }
 
     Object.assign(project, patch)
+    queuePersistProjects()
   }
 
   function removeProject(projectId: string) {
@@ -107,12 +128,15 @@ export const useProjectStore = defineStore('project', () => {
     if (selectedProjectId.value === projectId) {
       selectedProjectId.value = projects.value[0]?.id ?? ''
     }
+
+    queuePersistProjects()
   }
 
   function toggleProjectStar(projectId: string) {
     const project = projects.value.find((item) => item.id === projectId)
     if (project) {
       project.starred = !project.starred
+      queuePersistProjects()
     }
   }
 
@@ -120,6 +144,7 @@ export const useProjectStore = defineStore('project', () => {
     const project = projects.value.find((item) => item.id === projectId)
     if (project) {
       project.enabled = !project.enabled
+      queuePersistProjects()
     }
   }
 
@@ -131,6 +156,7 @@ export const useProjectStore = defineStore('project', () => {
 
     const config = createConfig(projectId, { name })
     project.configs.unshift(config)
+    queuePersistProjects()
     return config
   }
 
@@ -140,6 +166,7 @@ export const useProjectStore = defineStore('project', () => {
 
     if (config) {
       Object.assign(config, patch)
+      queuePersistProjects()
     }
   }
 
@@ -149,6 +176,7 @@ export const useProjectStore = defineStore('project', () => {
 
     if (config) {
       config.enabled = !config.enabled
+      queuePersistProjects()
     }
   }
 
@@ -159,6 +187,7 @@ export const useProjectStore = defineStore('project', () => {
     }
 
     project.configs = project.configs.filter((config) => config.id !== configId)
+    queuePersistProjects()
   }
 
   return {
@@ -176,5 +205,7 @@ export const useProjectStore = defineStore('project', () => {
     updateConfig,
     toggleConfigEnabled,
     removeConfig,
+    persistProjects,
+    hydrateProjects,
   }
 })
