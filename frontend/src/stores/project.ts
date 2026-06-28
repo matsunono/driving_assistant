@@ -4,6 +4,7 @@ import { defineStore } from 'pinia'
 import type { Config } from '../types/config'
 import type { Project } from '../types/project'
 import { exportProjectsSnapshot, loadProjectsFromJson, saveProjectsToJson } from '../services/projectPersistence'
+import { getRuntimeSnapshot, stopRuntime } from '../services/playbackRuntime'
 
 const createId = () => Math.random().toString(36).slice(2, 10)
 
@@ -127,6 +128,15 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   function removeProject(projectId: string) {
+    const runtime = getRuntimeSnapshot()
+    const removingProject = projects.value.find((project) => project.id === projectId)
+    const deletingActiveConfig =
+      runtime.running && Boolean(removingProject?.configs.some((config) => config.id === runtime.configId))
+
+    if (deletingActiveConfig) {
+      stopRuntime()
+    }
+
     projects.value = projects.value.filter((project) => project.id !== projectId)
 
     if (selectedProjectId.value === projectId) {
@@ -148,6 +158,16 @@ export const useProjectStore = defineStore('project', () => {
     const project = projects.value.find((item) => item.id === projectId)
     if (project) {
       project.enabled = !project.enabled
+
+      if (!project.enabled) {
+        const runtime = getRuntimeSnapshot()
+        const disablingActiveConfig =
+          runtime.running && project.configs.some((config) => config.id === runtime.configId)
+        if (disablingActiveConfig) {
+          stopRuntime()
+        }
+      }
+
       queuePersistProjects()
     }
   }
@@ -180,6 +200,15 @@ export const useProjectStore = defineStore('project', () => {
 
     if (config) {
       config.enabled = !config.enabled
+
+      if (!config.enabled) {
+        const runtime = getRuntimeSnapshot()
+        const disablingActiveConfig = runtime.running && runtime.configId === config.id
+        if (disablingActiveConfig) {
+          stopRuntime()
+        }
+      }
+
       queuePersistProjects()
     }
   }
@@ -188,6 +217,12 @@ export const useProjectStore = defineStore('project', () => {
     const project = projects.value.find((item) => item.id === projectId)
     if (!project) {
       return
+    }
+
+    const runtime = getRuntimeSnapshot()
+    const deletingActiveConfig = runtime.running && runtime.configId === configId
+    if (deletingActiveConfig) {
+      stopRuntime()
     }
 
     project.configs = project.configs.filter((config) => config.id !== configId)

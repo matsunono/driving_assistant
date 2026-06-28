@@ -1,12 +1,22 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { useProjectStore } from '../stores/project'
+import { usePlaybackStore } from '../stores/playback'
+import type { PlaybackQueueItem } from '../services/playbackEngine'
+import {
+  getRuntimeSnapshot,
+  startRuntime,
+  stopRuntime,
+  subscribeRuntimeSnapshot,
+  triggerRuntimeNow as triggerRuntimeNowService,
+} from '../services/playbackRuntime'
 import type { PlaybackMode, TimerType } from '../types/config'
 
 const route = useRoute()
 const projectStore = useProjectStore()
+const playbackStore = usePlaybackStore()
 
 const projectId = computed(() => String(route.params.projectId ?? ''))
 const configId = computed(() => String(route.params.configId ?? ''))
@@ -29,6 +39,7 @@ interface SelectedAudioFile {
   name: string
   relativePath: string
   objectUrl: string
+  sourceFile: File
 }
 
 const form = ref({
@@ -55,11 +66,15 @@ const previewError = ref('')
 const previewAudio = ref<HTMLAudioElement | null>(null)
 const previewIndex = ref(0)
 const isPreviewPlaying = ref(false)
+const runtimeMessage = ref('')
+const runtimeSnapshot = ref(getRuntimeSnapshot())
+let unsubscribeRuntimeSnapshot: (() => void) | null = null
 
 const isTimerMode = computed(() => form.value.timerType === 'timer')
 const requiresBaseDir = computed(() => selectedAudioFiles.value.length > 0)
 const hasValidBaseDir = computed(() => form.value.targetBaseDir.trim().length > 0)
 const canSaveConfig = computed(() => !requiresBaseDir.value || hasValidBaseDir.value)
+const isEngineRunning = computed(() => runtimeSnapshot.value.running)
 
 const intervalSummary = computed(() => {
   return `${String(form.value.intervalHours).padStart(2, '0')}時間${String(form.value.intervalMinutes).padStart(2, '0')}分ごと`
@@ -112,8 +127,17 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  unsubscribeRuntimeSnapshot?.()
+  unsubscribeRuntimeSnapshot = null
+
   stopPreview()
   revokeAllPreviewUrls()
+})
+
+onMounted(() => {
+  unsubscribeRuntimeSnapshot = subscribeRuntimeSnapshot((snapshot) => {
+    runtimeSnapshot.value = snapshot
+  })
 })
 
 function isAudioFile(file: File) {
@@ -179,6 +203,7 @@ function onFilePicked(event: Event) {
       name: file.name,
       relativePath: file.name,
       objectUrl: URL.createObjectURL(file),
+      sourceFile: file,
     })
   }
 
@@ -324,6 +349,91 @@ function movePreview(step: number) {
   if (isPreviewPlaying.value) {
     void playPreview()
   }
+}
+
+function buildRuntimeQueue(): PlaybackQueueItem[] {
+  return selectedAudioFiles.value.map((file) => ({
+    id: file.id,
+    label: file.relativePath,
+    url: URL.createObjectURL(file.sourceFile),
+  }))
+}
+
+function buildIntervalMinutes() {
+  const hours = Math.max(0, Math.trunc(form.value.intervalHours))
+  const minutes = Math.max(0, Math.trunc(form.value.intervalMinutes))
+  const totalMinutes = hours * 60 + minutes
+  return Math.max(1, totalMinutes)
+}
+
+async function startRuntimeSchedule() {
+  if (!config.value) {
+    return
+  }
+
+  if (!project.value?.enabled) {
+    runtimeMessage.value = 'プロジェクトがOFFのため開始できません'
+    return
+  }
+
+  if (!config.value.enabled) {
+    runtimeMessage.value = 'この設定ファイルがOFFのため開始できません'
+    return
+  }
+
+  const queue = buildRuntimeQueue()
+  if (queue.length === 0) {
+    runtimeMessage.value = '再生対象が未選択のため開始できません'
+    return
+  }
+
+  const currentConfig = config.value
+  const currentProject = project.value
+
+  runtimeSnapshot.value = await startRuntime({
+    configId: currentConfig.id,
+    configName: currentConfig.name,
+    timerType: form.value.timerType,
+    intervalMinutes: buildIntervalMinutes(),
+    alarmTime: form.value.timerType === 'alarm' ? buildAlarmTimeIso() : undefined,
+    playbackMode: form.value.playbackMode,
+    queue,
+    onPlayed: ({ label, result }) => {
+      playbackStore.finishPlaying({
+        projectId: currentProject?.id ?? '',
+        configId: currentConfig.id,
+        title: label,
+        result,
+      })
+    },
+  })
+
+  if (runtimeSnapshot.value.running) {
+    runtimeMessage.value = '再生スケジュールを開始しました'
+    return
+  }
+
+  runtimeMessage.value = runtimeSnapshot.value.errorMessage ?? '再生スケジュールの開始に失敗しました'
+}
+
+async function triggerRuntimeNow() {
+  if (!project.value?.enabled) {
+    runtimeMessage.value = 'プロジェクトがOFFのため再生できません'
+    return
+  }
+
+  if (!config.value?.enabled) {
+    runtimeMessage.value = 'この設定ファイルがOFFのため再生できません'
+    return
+  }
+
+  runtimeSnapshot.value = await triggerRuntimeNowService()
+  runtimeMessage.value = runtimeSnapshot.value.errorMessage ?? '即時再生を実行しました'
+}
+
+function stopRuntimeSchedule() {
+  runtimeSnapshot.value = stopRuntime()
+  runtimeMessage.value = '再生スケジュールを停止しました'
 }
 
 function buildAlarmTimeIso() {
@@ -616,6 +726,28 @@ function saveConfig() {
               </button>
             </div>
             <p v-if="previewError" class="text-xs text-error">{{ previewError }}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-[96px_1fr] items-start gap-3">
+          <span class="font-semibold text-base-content/75">再生実行</span>
+          <div class="space-y-2 rounded-2xl bg-base-200/60 p-3">
+            <p class="text-xs text-base-content/70">
+              状態: {{ isEngineRunning ? '実行中' : '停止中' }}
+            </p>
+            <p class="text-xs text-base-content/70" v-if="runtimeSnapshot.nextRunAt">
+              次回実行: {{ runtimeSnapshot.nextRunAt }}
+            </p>
+            <p class="text-xs text-base-content/70" v-if="runtimeSnapshot.lastPlayedLabel">
+              最終再生: {{ runtimeSnapshot.lastPlayedLabel }}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="btn btn-outline btn-xs" :disabled="isEngineRunning" @click="startRuntimeSchedule">開始</button>
+              <button type="button" class="btn btn-outline btn-xs" :disabled="!isEngineRunning" @click="stopRuntimeSchedule">停止</button>
+              <button type="button" class="btn btn-ghost btn-xs" @click="triggerRuntimeNow">今すぐ再生</button>
+            </div>
+            <p v-if="runtimeMessage" class="text-xs text-base-content/70">{{ runtimeMessage }}</p>
+            <p v-if="runtimeSnapshot.errorMessage" class="text-xs text-error">{{ runtimeSnapshot.errorMessage }}</p>
           </div>
         </div>
 
