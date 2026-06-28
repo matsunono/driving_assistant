@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { useProjectStore } from '../stores/project'
@@ -24,6 +24,13 @@ interface SelectedItem {
   fileCount: number
 }
 
+interface SelectedAudioFile {
+  id: string
+  name: string
+  relativePath: string
+  objectUrl: string
+}
+
 const form = ref({
   description: '',
   timerType: 'timer' as TimerType,
@@ -36,14 +43,23 @@ const form = ref({
   alarmMinutes: 0,
   requireActionOnEnd: false,
   playbackMode: 'random' as PlaybackMode,
+  targetBaseDir: '',
   targetPath: '',
 })
 
 const selectedItems = ref<SelectedItem[]>([])
+const selectedAudioFiles = ref<SelectedAudioFile[]>([])
 const invalidFiles = ref<string[]>([])
 const saveMessage = ref('')
+const previewError = ref('')
+const previewAudio = ref<HTMLAudioElement | null>(null)
+const previewIndex = ref(0)
+const isPreviewPlaying = ref(false)
 
 const isTimerMode = computed(() => form.value.timerType === 'timer')
+const requiresBaseDir = computed(() => selectedAudioFiles.value.length > 0)
+const hasValidBaseDir = computed(() => form.value.targetBaseDir.trim().length > 0)
+const canSaveConfig = computed(() => !requiresBaseDir.value || hasValidBaseDir.value)
 
 const intervalSummary = computed(() => {
   return `${String(form.value.intervalHours).padStart(2, '0')}時間${String(form.value.intervalMinutes).padStart(2, '0')}分ごと`
@@ -56,6 +72,8 @@ const alarmSummary = computed(() => {
 const playbackSummary = computed(() => (form.value.playbackMode === 'random' ? 'ランダム再生' : '順番再生'))
 
 const operationSummary = computed(() => (form.value.requireActionOnEnd ? 'ON（操作があるまで次回停止）' : 'OFF（自動継続）'))
+
+const currentPreviewFile = computed(() => selectedAudioFiles.value[previewIndex.value] ?? null)
 
 watch(
   config,
@@ -80,13 +98,23 @@ watch(
     form.value.requireActionOnEnd = nextConfig.requireActionOnEnd
     form.value.playbackMode = nextConfig.playbackMode
     form.value.targetPath = nextConfig.targetPath
+    form.value.targetBaseDir = deriveBaseDirFromTargetPath(nextConfig.targetPath)
 
-    selectedItems.value = []
+    revokeAllPreviewUrls()
+    selectedItems.value = buildItemsFromTargetPath(nextConfig.targetPath)
+    selectedAudioFiles.value = []
     invalidFiles.value = []
     saveMessage.value = ''
+    previewError.value = ''
+    stopPreview()
   },
   { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  stopPreview()
+  revokeAllPreviewUrls()
+})
 
 function isAudioFile(file: File) {
   if (file.type.startsWith('audio/')) {
@@ -105,10 +133,32 @@ function addUniqueItems(items: SelectedItem[]) {
   selectedItems.value = Array.from(map.values())
 }
 
+function addUniqueAudioFiles(files: SelectedAudioFile[]) {
+  const map = new Map(selectedAudioFiles.value.map((item) => [item.relativePath, item]))
+
+  for (const file of files) {
+    const existing = map.get(file.relativePath)
+    if (existing) {
+      URL.revokeObjectURL(file.objectUrl)
+      continue
+    }
+    map.set(file.relativePath, file)
+  }
+
+  selectedAudioFiles.value = Array.from(map.values())
+}
+
+function revokeAllPreviewUrls() {
+  for (const file of selectedAudioFiles.value) {
+    URL.revokeObjectURL(file.objectUrl)
+  }
+}
+
 function onFilePicked(event: Event) {
   const input = event.target as HTMLInputElement
   const files = input.files ? Array.from(input.files) : []
   const itemsToAdd: SelectedItem[] = []
+  const audioFilesToAdd: SelectedAudioFile[] = []
 
   for (const file of files) {
     if (!isAudioFile(file)) {
@@ -123,55 +173,157 @@ function onFilePicked(event: Event) {
       path: file.name,
       fileCount: 1,
     })
+
+    audioFilesToAdd.push({
+      id: `${Date.now()}-${file.name}-${Math.random()}`,
+      name: file.name,
+      relativePath: file.name,
+      objectUrl: URL.createObjectURL(file),
+    })
   }
 
   addUniqueItems(itemsToAdd)
-  input.value = ''
-}
-
-function onFolderPicked(event: Event) {
-  const input = event.target as HTMLInputElement
-  const files = input.files ? Array.from(input.files) : []
-  const folderMap = new Map<string, { path: string; count: number }>()
-
-  for (const file of files) {
-    if (!isAudioFile(file)) {
-      invalidFiles.value.push(file.webkitRelativePath || file.name)
-      continue
-    }
-
-    const relativePath = file.webkitRelativePath || file.name
-    const firstSegment = relativePath.includes('/') ? relativePath.split('/')[0] : relativePath
-    const topFolder = firstSegment || 'selected-folder'
-    const current = folderMap.get(topFolder)
-
-    if (!current) {
-      folderMap.set(topFolder, { path: topFolder, count: 1 })
-      continue
-    }
-
-    current.count += 1
-  }
-
-  const itemsToAdd: SelectedItem[] = Array.from(folderMap.entries()).map(([folderName, value]) => ({
-    id: `${Date.now()}-${folderName}-${Math.random()}`,
-    kind: 'folder',
-    name: folderName,
-    path: value.path,
-    fileCount: value.count,
-  }))
-
-  addUniqueItems(itemsToAdd)
+  addUniqueAudioFiles(audioFilesToAdd)
   input.value = ''
 }
 
 function removeItem(path: string) {
+  const removed = selectedAudioFiles.value.filter(
+    (file) => file.relativePath === path || file.relativePath.startsWith(`${path}/`),
+  )
+  for (const file of removed) {
+    URL.revokeObjectURL(file.objectUrl)
+  }
+
+  selectedAudioFiles.value = selectedAudioFiles.value.filter(
+    (file) => file.relativePath !== path && !file.relativePath.startsWith(`${path}/`),
+  )
+
+  if (previewIndex.value >= selectedAudioFiles.value.length) {
+    previewIndex.value = Math.max(0, selectedAudioFiles.value.length - 1)
+  }
+
+  if (selectedAudioFiles.value.length === 0) {
+    stopPreview()
+  }
+
   selectedItems.value = selectedItems.value.filter((item) => item.path !== path)
+
+  if (selectedAudioFiles.value.length === 0) {
+    form.value.targetPath = selectedItems.value.map((item) => item.path).join('; ')
+  }
 }
 
 function clearItems() {
+  stopPreview()
+  revokeAllPreviewUrls()
   selectedItems.value = []
+  selectedAudioFiles.value = []
+  previewIndex.value = 0
+  previewError.value = ''
   invalidFiles.value = []
+}
+
+function deriveBaseDirFromTargetPath(targetPath: string) {
+  if (!targetPath) {
+    return ''
+  }
+
+  const firstPath = targetPath.split(';').map((item) => item.trim()).find(Boolean)
+  if (!firstPath) {
+    return ''
+  }
+
+  const lastSlashIndex = firstPath.lastIndexOf('/')
+  if (lastSlashIndex <= 0) {
+    return ''
+  }
+
+  return firstPath.slice(0, lastSlashIndex)
+}
+
+function parseTargetPathEntries(targetPath: string) {
+  return targetPath
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function extractFileName(path: string) {
+  const normalized = path.replace(/\\/g, '/')
+  const chunks = normalized.split('/').filter(Boolean)
+  return chunks.at(-1) ?? path
+}
+
+function buildItemsFromTargetPath(targetPath: string): SelectedItem[] {
+  const entries = parseTargetPathEntries(targetPath)
+  return entries.map((path, index) => ({
+    id: `saved-item-${index}-${path}`,
+    kind: 'file',
+    name: extractFileName(path),
+    path,
+    fileCount: 1,
+  }))
+}
+
+function normalizeJoin(baseDir: string, relativePath: string) {
+  const normalizedBase = baseDir.trim().replace(/\/+$/, '')
+  const normalizedRelative = relativePath.replace(/^\/+/, '')
+  if (!normalizedBase) {
+    return normalizedRelative
+  }
+  return `${normalizedBase}/${normalizedRelative}`
+}
+
+function stopPreview() {
+  if (!previewAudio.value) {
+    isPreviewPlaying.value = false
+    return
+  }
+
+  previewAudio.value.pause()
+  previewAudio.value.currentTime = 0
+  isPreviewPlaying.value = false
+}
+
+async function playPreview() {
+  if (!currentPreviewFile.value) {
+    previewError.value = '試聴できる音声がありません'
+    return
+  }
+
+  previewError.value = ''
+
+  if (!previewAudio.value) {
+    previewAudio.value = new Audio()
+    previewAudio.value.addEventListener('ended', () => {
+      isPreviewPlaying.value = false
+    })
+  }
+
+  previewAudio.value.src = currentPreviewFile.value.objectUrl
+
+  try {
+    await previewAudio.value.play()
+    isPreviewPlaying.value = true
+  } catch {
+    isPreviewPlaying.value = false
+    previewError.value = 'この環境では試聴再生を開始できませんでした'
+  }
+}
+
+function movePreview(step: number) {
+  if (selectedAudioFiles.value.length === 0) {
+    return
+  }
+
+  const maxIndex = selectedAudioFiles.value.length - 1
+  const nextIndex = Math.min(maxIndex, Math.max(0, previewIndex.value + step))
+  previewIndex.value = nextIndex
+
+  if (isPreviewPlaying.value) {
+    void playPreview()
+  }
 }
 
 function buildAlarmTimeIso() {
@@ -256,7 +408,16 @@ function saveConfig() {
     return
   }
 
-  const targetPath = selectedItems.value.length > 0 ? selectedItems.value.map((item) => item.path).join('; ') : form.value.targetPath
+  if (!canSaveConfig.value) {
+    saveMessage.value = '保存先ベースを入力してください'
+    return
+  }
+
+  const hasSelectedAudio = selectedAudioFiles.value.length > 0
+  const resolvedPaths = hasSelectedAudio
+    ? selectedAudioFiles.value.map((file) => normalizeJoin(form.value.targetBaseDir, file.relativePath))
+    : []
+  const targetPath = hasSelectedAudio ? resolvedPaths.join('; ') : form.value.targetPath
 
   projectStore.updateConfig(projectId.value, configId.value, {
     description: form.value.description,
@@ -415,14 +576,46 @@ function saveConfig() {
                 ファイル追加
                 <input type="file" class="hidden" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" multiple @change="onFilePicked" />
               </label>
-              <label class="btn btn-outline btn-sm rounded-xl">
-                フォルダ追加
-                <input type="file" class="hidden" webkitdirectory directory multiple @change="onFolderPicked" />
-              </label>
               <button type="button" class="btn btn-ghost btn-sm rounded-xl" @click="clearItems">クリア</button>
             </div>
             <p class="text-xs text-base-content/55">音声ファイルのみ登録されます（mp3/wav/m4a/aac/ogg/flac）</p>
             <p v-if="invalidFiles.length" class="text-xs text-error">{{ invalidFiles.length }}件の非対応ファイルを除外しました</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-[96px_1fr] items-center gap-3">
+          <span class="font-semibold text-base-content/75">保存先ベース</span>
+          <div class="space-y-1">
+            <input
+              v-model="form.targetBaseDir"
+              type="text"
+              class="input input-bordered h-10 w-full rounded-xl"
+              placeholder="例: /storage/emulated/0/Music/drive"
+            />
+            <p v-if="requiresBaseDir && !hasValidBaseDir" class="text-xs text-error">再生対象を選択した場合は保存先ベースが必須です</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-[96px_1fr] items-start gap-3">
+          <span class="font-semibold text-base-content/75">試聴</span>
+          <div class="space-y-2 rounded-2xl bg-base-200/60 p-3">
+            <p class="text-xs text-base-content/70">
+              {{ currentPreviewFile ? `選択中: ${currentPreviewFile.relativePath}` : '試聴対象が未選択です' }}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="btn btn-outline btn-xs" :disabled="previewIndex === 0" @click="movePreview(-1)">前へ</button>
+              <button type="button" class="btn btn-outline btn-xs" :disabled="!currentPreviewFile" @click="playPreview">再生</button>
+              <button type="button" class="btn btn-ghost btn-xs" :disabled="!isPreviewPlaying" @click="stopPreview">停止</button>
+              <button
+                type="button"
+                class="btn btn-outline btn-xs"
+                :disabled="selectedAudioFiles.length === 0 || previewIndex >= selectedAudioFiles.length - 1"
+                @click="movePreview(1)"
+              >
+                次へ
+              </button>
+            </div>
+            <p v-if="previewError" class="text-xs text-error">{{ previewError }}</p>
           </div>
         </div>
 
@@ -477,8 +670,15 @@ function saveConfig() {
           </div>
         </dl>
 
-        <button type="button" class="btn btn-neutral mt-2 h-14 w-full rounded-2xl text-base font-bold" @click="saveConfig">設定</button>
-        <p v-if="saveMessage" class="text-xs text-success">{{ saveMessage }}</p>
+        <button
+          type="button"
+          class="btn btn-neutral mt-2 h-14 w-full rounded-2xl text-base font-bold"
+          :disabled="!canSaveConfig"
+          @click="saveConfig"
+        >
+          設定
+        </button>
+        <p v-if="saveMessage" :class="canSaveConfig ? 'text-xs text-success' : 'text-xs text-error'">{{ saveMessage }}</p>
       </div>
     </div>
   </section>

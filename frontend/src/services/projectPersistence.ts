@@ -1,10 +1,12 @@
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem'
 import { Capacitor } from '@capacitor/core'
 
+import type { Config } from '../types/config'
 import type { Project } from '../types/project'
 
 const PROJECTS_FILE_PATH = 'soundup/projects.json'
 const PROJECTS_FALLBACK_KEY = 'soundup.projects.json'
+const CURRENT_SCHEMA_VERSION = 2
 
 interface PersistedProjectPayload {
   version: number
@@ -24,7 +26,7 @@ function hasLocalStorage() {
 
 function buildPayload(projects: Project[]): PersistedProjectPayload {
   return {
-    version: 1,
+    version: CURRENT_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
     projects,
   }
@@ -41,16 +43,119 @@ function buildFileName() {
   return `projects-${yyyy}${mm}${dd}-${hh}${min}${sec}.json`
 }
 
+function createId() {
+  return Math.random().toString(36).slice(2, 10)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function toSafeString(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value : fallback
+}
+
+function toSafeBoolean(value: unknown, fallback = false) {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function toSafeNumber(value: unknown, fallback = 0) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  return fallback
+}
+
+function sanitizeConfig(rawConfig: unknown, projectId: string, index: number): Config {
+  const config = isRecord(rawConfig) ? rawConfig : {}
+  const rawInterval = isRecord(config.interval) ? config.interval : {}
+  const timerType = config.timerType === 'alarm' ? 'alarm' : 'timer'
+  const playbackMode = config.playbackMode === 'sequential' ? 'sequential' : 'random'
+
+  return {
+    id: toSafeString(config.id, `${projectId}-cfg-${index}-${createId()}`),
+    projectId,
+    name: toSafeString(config.name, `設定ファイル${index + 1}`),
+    description: toSafeString(config.description),
+    timerType,
+    interval: {
+      days: Math.max(0, Math.trunc(toSafeNumber(rawInterval.days, 0))),
+      hours: Math.max(0, Math.trunc(toSafeNumber(rawInterval.hours, 0))),
+      minutes: Math.max(0, Math.trunc(toSafeNumber(rawInterval.minutes, 30))),
+    },
+    alarmTime: typeof config.alarmTime === 'string' ? config.alarmTime : undefined,
+    requireActionOnEnd: toSafeBoolean(config.requireActionOnEnd, false),
+    targetPath: toSafeString(config.targetPath),
+    playbackMode,
+    audioDucking: toSafeBoolean(config.audioDucking, true),
+    enabled: toSafeBoolean(config.enabled, true),
+  }
+}
+
+function sanitizeProjects(rawProjects: unknown): Project[] | null {
+  if (!Array.isArray(rawProjects)) {
+    return null
+  }
+
+  const projects = rawProjects
+    .map((rawProject, index) => {
+      if (!isRecord(rawProject)) {
+        return null
+      }
+
+      const projectId = toSafeString(rawProject.id, `project-${index}-${createId()}`)
+      const rawConfigs = Array.isArray(rawProject.configs) ? rawProject.configs : []
+
+      return {
+        id: projectId,
+        name: toSafeString(rawProject.name, `プロジェクト${index + 1}`),
+        description: toSafeString(rawProject.description),
+        starred: toSafeBoolean(rawProject.starred, false),
+        enabled: toSafeBoolean(rawProject.enabled, true),
+        configs: rawConfigs.map((config, configIndex) => sanitizeConfig(config, projectId, configIndex)),
+      } satisfies Project
+    })
+    .filter((project): project is Project => Boolean(project))
+
+  return projects.length > 0 ? projects : null
+}
+
+function migratePayload(parsed: unknown): Project[] | null {
+  if (Array.isArray(parsed)) {
+    return sanitizeProjects(parsed)
+  }
+
+  if (!isRecord(parsed)) {
+    return null
+  }
+
+  if (Array.isArray(parsed.projects)) {
+    const version = toSafeNumber(parsed.version, 1)
+    if (version <= CURRENT_SCHEMA_VERSION) {
+      return sanitizeProjects(parsed.projects)
+    }
+  }
+
+  return null
+}
+
 function parsePayload(raw: string): Project[] | null {
   try {
-    const parsed = JSON.parse(raw) as Partial<PersistedProjectPayload>
-    if (!Array.isArray(parsed.projects)) {
-      return null
-    }
-    return parsed.projects as Project[]
+    const parsed = JSON.parse(raw) as unknown
+    return migratePayload(parsed)
   } catch {
     return null
   }
+}
+
+async function readPrimaryPayloadText() {
+  const result = await Filesystem.readFile({
+    path: PROJECTS_FILE_PATH,
+    directory: Directory.Data,
+    encoding: Encoding.UTF8,
+  })
+
+  return typeof result.data === 'string' ? result.data : ''
 }
 
 export async function saveProjectsToJson(projects: Project[]) {
@@ -70,15 +175,11 @@ export async function saveProjectsToJson(projects: Project[]) {
 }
 
 export async function loadProjectsFromJson() {
-  try {
-    const result = await Filesystem.readFile({
-      path: PROJECTS_FILE_PATH,
-      directory: Directory.Data,
-      encoding: Encoding.UTF8,
-    })
+  let primaryRaw = ''
 
-    const text = typeof result.data === 'string' ? result.data : ''
-    const projects = parsePayload(text)
+  try {
+    primaryRaw = await readPrimaryPayloadText()
+    const projects = parsePayload(primaryRaw)
     if (projects) {
       return projects
     }
@@ -95,7 +196,19 @@ export async function loadProjectsFromJson() {
     return null
   }
 
-  return parsePayload(fallback)
+  const fallbackProjects = parsePayload(fallback)
+  if (!fallbackProjects) {
+    if (primaryRaw) {
+      window.localStorage.removeItem(PROJECTS_FALLBACK_KEY)
+    }
+    return null
+  }
+
+  if (primaryRaw && !parsePayload(primaryRaw)) {
+    await saveProjectsToJson(fallbackProjects)
+  }
+
+  return fallbackProjects
 }
 
 export async function exportProjectsSnapshot(projects: Project[]): Promise<ExportResult> {
