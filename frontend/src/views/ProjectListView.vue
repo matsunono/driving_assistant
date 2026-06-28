@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { faStar } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import CreateProjectModal from '../components/feature/CreateProjectModal.vue'
 import ConfirmModal from '../components/common/ConfirmModal.vue'
 import RowActionMenu from '../components/common/RowActionMenu.vue'
 
@@ -11,10 +12,25 @@ import { useProjectStore } from '../stores/project'
 const projectStore = useProjectStore()
 const router = useRouter()
 const pendingDelete = ref<{ projectId: string; projectName: string } | null>(null)
+const pendingCreate = ref(false)
 
 function openProject(projectId: string) {
   projectStore.selectProject(projectId)
   router.push(`/projects/${projectId}`)
+}
+
+function openCreateProject() {
+  pendingCreate.value = true
+}
+
+function cancelCreateProject() {
+  pendingCreate.value = false
+}
+
+function confirmCreateProject(payload: { name: string; description: string }) {
+  const project = projectStore.createProject(payload.name, payload.description)
+  pendingCreate.value = false
+  openProject(project.id)
 }
 
 function editProject(projectId: string) {
@@ -45,17 +61,18 @@ function confirmDeleteProject() {
 
 <template>
   <section class="mx-auto flex w-full max-w-md flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <button class="btn btn-neutral rounded-full px-4 text-sm font-bold shadow-sm">新規作成</button>
-      <!-- <div class="text-right">
-        <p class="text-sm text-base-content/40">Projects</p>
-        <h2 class="text-xl font-bold text-base-content">プロジェクト一覧</h2>
-      </div> -->
-    </div>
-
     <div class="rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)] backdrop-blur">
-      <p class="text-sm text-base-content/40">Projects</p>
-      <h2 class="mt-1 text-2xl font-bold text-base-content">プロジェクト一覧</h2>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-sm text-base-content/40">Projects</p>
+          <h2 class="mt-1 text-2xl font-bold text-base-content">プロジェクト一覧</h2>
+        </div>
+
+        <button type="button" class="btn btn-neutral rounded-full px-4 text-sm font-bold shadow-sm" @click="openCreateProject">
+          新規作成
+        </button>
+      </div>
+
       <div class="mt-4 space-y-3">
         <button
           v-for="project in projectStore.projects"
@@ -91,6 +108,11 @@ function confirmDeleteProject() {
       </div>
     </div>
 
+    <CreateProjectModal
+      :open="pendingCreate"
+      @confirm="confirmCreateProject"
+      @cancel="cancelCreateProject"
+    />
     <ConfirmModal
       :open="Boolean(pendingDelete)"
       title="プロジェクトを削除しますか？"

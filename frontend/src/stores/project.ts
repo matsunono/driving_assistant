@@ -14,7 +14,7 @@ const createConfig = (projectId: string, overrides: Partial<Config> = {}): Confi
   timerType: 'timer',
   interval: { days: 0, hours: 0, minutes: 30 },
   alarmTime: undefined,
-  requireActionOnEnd: true,
+  requireActionOnEnd: false,
   targetPath: '/storage/emulated/0/Music/rest',
   playbackMode: 'random',
   audioDucking: true,
