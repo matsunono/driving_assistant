@@ -52,7 +52,7 @@ function goBack() {
       <div class="flex h-10 w-10 items-center justify-center"></div>
     </div>
     <div class="mx-auto mt-1 flex w-full max-w-md justify-center">
-      <p class="text-[0.65rem] font-medium uppercase tracking-[0.26em] text-base-content/45">Sound App</p>
+      <p class="text-[0.65rem] font-medium uppercase tracking-[0.26em] text-base-content/45">Sound Up</p>
     </div>
   </header>
 </template>

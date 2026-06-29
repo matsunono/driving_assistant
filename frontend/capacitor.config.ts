@@ -1,6 +1,6 @@
 export default {
-  appId: 'com.soundapp.app',
-  appName: 'Sound App',
+  appId: 'com.soundup.app',
+  appName: 'Sound Up',
   webDir: 'dist',
   bundledWebRuntime: false,
 }
