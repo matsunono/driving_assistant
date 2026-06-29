@@ -3,7 +3,8 @@ import type { PlaybackMode, TimerType } from '../types/config'
 export interface PlaybackQueueItem {
   id: string
   label: string
-  url: string
+  url?: string
+  sourcePath?: string
 }
 
 export interface PlayedEvent {
@@ -172,7 +173,15 @@ export class PlaybackEngine {
     }
 
     const audio = this.audio
-    audio.src = item.url
+    const playbackUrl = item.url ?? item.sourcePath
+
+    if (!playbackUrl) {
+      this.snapshot.errorMessage = '再生対象の音声がありません'
+      this.options?.onPlayed?.({ label: item.label, result: 'failed' })
+      return this.getSnapshot()
+    }
+
+    audio.src = playbackUrl
 
     try {
       await audio.play()

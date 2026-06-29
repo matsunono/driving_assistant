@@ -3,12 +3,15 @@ import {
   type PlaybackSnapshot,
   type StartPlaybackOptions,
 } from './playbackEngine'
+import { isAndroidPlatform, isNativePlatform } from '../plugins/capacitor'
+import { NativePlayback } from '../plugins/nativePlayback'
 
 type SnapshotListener = (snapshot: PlaybackSnapshot) => void
 
 const engine = new PlaybackEngine()
 const listeners = new Set<SnapshotListener>()
 let runtimeOwnedUrls: string[] = []
+let nativeListenerBound = false
 
 let snapshot: PlaybackSnapshot = engine.getSnapshot()
 let pollHandle: ReturnType<typeof setInterval> | null = null
@@ -17,6 +20,25 @@ function publish(nextSnapshot?: PlaybackSnapshot) {
   snapshot = nextSnapshot ?? engine.getSnapshot()
   for (const listener of listeners) {
     listener(snapshot)
+  }
+}
+
+function hasNativeRuntime() {
+  return isNativePlatform() && isAndroidPlatform()
+}
+
+async function bindNativeListener() {
+  if (!hasNativeRuntime() || nativeListenerBound) {
+    return
+  }
+
+  try {
+    await NativePlayback.addListener('snapshotChanged', (next) => {
+      publish(next)
+    })
+    nativeListenerBound = true
+  } catch {
+    nativeListenerBound = false
   }
 }
 
@@ -56,6 +78,7 @@ export function getRuntimeSnapshot() {
 export function subscribeRuntimeSnapshot(listener: SnapshotListener) {
   listeners.add(listener)
   listener(snapshot)
+  void bindNativeListener()
 
   return () => {
     listeners.delete(listener)
@@ -63,8 +86,25 @@ export function subscribeRuntimeSnapshot(listener: SnapshotListener) {
 }
 
 export async function startRuntime(options: StartPlaybackOptions) {
+  if (hasNativeRuntime()) {
+    await bindNativeListener()
+    const next = await NativePlayback.start({
+      configId: options.configId,
+      configName: options.configName,
+      timerType: options.timerType,
+      intervalMinutes: options.intervalMinutes,
+      alarmTime: options.alarmTime,
+      playbackMode: options.playbackMode,
+      queue: options.queue,
+    })
+    publish(next)
+    return snapshot
+  }
+
   revokeRuntimeOwnedUrls()
-  runtimeOwnedUrls = options.queue.map((item) => item.url)
+  runtimeOwnedUrls = options.queue
+    .map((item) => item.url)
+    .filter((url): url is string => Boolean(url))
 
   const next = await engine.start(options)
   publish(next)
@@ -80,15 +120,51 @@ export async function startRuntime(options: StartPlaybackOptions) {
 }
 
 export async function triggerRuntimeNow() {
+  if (hasNativeRuntime()) {
+    const next = await NativePlayback.triggerNow()
+    publish(next)
+    return snapshot
+  }
+
   const next = await engine.triggerNow()
   publish(next)
   return snapshot
 }
 
 export function stopRuntime() {
+  if (hasNativeRuntime()) {
+    void NativePlayback.stop().then((next) => {
+      publish(next)
+    })
+    snapshot = {
+      ...snapshot,
+      running: false,
+      nextRunAt: null,
+    }
+    publish(snapshot)
+    return snapshot
+  }
+
   const next = engine.stop()
   clearPolling()
   revokeRuntimeOwnedUrls()
   publish(next)
+  return snapshot
+}
+
+export async function hydrateRuntimeSnapshot() {
+  if (!hasNativeRuntime()) {
+    return snapshot
+  }
+
+  await bindNativeListener()
+
+  try {
+    const next = await NativePlayback.getSnapshot()
+    publish(next)
+  } catch {
+    // Keep the last in-memory snapshot when native bridge is not ready.
+  }
+
   return snapshot
 }
