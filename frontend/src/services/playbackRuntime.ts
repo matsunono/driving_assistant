@@ -27,6 +27,12 @@ function hasNativeRuntime() {
   return isNativePlatform() && isAndroidPlatform()
 }
 
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
 async function bindNativeListener() {
   if (!hasNativeRuntime() || nativeListenerBound) {
     return
@@ -88,7 +94,7 @@ export function subscribeRuntimeSnapshot(listener: SnapshotListener) {
 export async function startRuntime(options: StartPlaybackOptions) {
   if (hasNativeRuntime()) {
     await bindNativeListener()
-    const next = await NativePlayback.start({
+    const accepted = await NativePlayback.start({
       configId: options.configId,
       configName: options.configName,
       timerType: options.timerType,
@@ -97,7 +103,19 @@ export async function startRuntime(options: StartPlaybackOptions) {
       playbackMode: options.playbackMode,
       queue: options.queue,
     })
-    publish(next)
+    publish(accepted)
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const refreshed = await NativePlayback.getSnapshot()
+      publish(refreshed)
+
+      if (refreshed.running || refreshed.errorMessage) {
+        break
+      }
+
+      await delay(120)
+    }
+
     return snapshot
   }
 

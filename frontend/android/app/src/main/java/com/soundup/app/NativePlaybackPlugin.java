@@ -71,7 +71,18 @@ public class NativePlaybackPlugin extends Plugin {
         intent.putStringArrayListExtra(NativePlaybackContract.EXTRA_QUEUE_PATHS, paths);
 
         ContextCompat.startForegroundService(context, intent);
-        call.resolve(NativePlaybackService.getSnapshotCopy().toJsObject());
+
+        JSObject accepted = new JSObject();
+        accepted.put("running", true);
+        accepted.put("configId", call.getString("configId"));
+        accepted.put("configName", call.getString("configName"));
+        accepted.put("timerType", call.getString("timerType"));
+        accepted.put("queueSize", paths.size());
+        accepted.put("nextRunAt", null);
+        accepted.put("lastRunAt", null);
+        accepted.put("lastPlayedLabel", null);
+        accepted.put("errorMessage", null);
+        call.resolve(accepted);
     }
 
     @PluginMethod

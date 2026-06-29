@@ -7,7 +7,6 @@ import { usePlaybackStore } from '../stores/playback'
 import type { PlaybackQueueItem } from '../services/playbackEngine'
 import {
   getRuntimeSnapshot,
-  hydrateRuntimeSnapshot,
   startRuntime,
   stopRuntime,
   subscribeRuntimeSnapshot,
@@ -137,10 +136,6 @@ onBeforeUnmount(() => {
 
 onMounted(() => {
   unsubscribeRuntimeSnapshot = subscribeRuntimeSnapshot((snapshot) => {
-    runtimeSnapshot.value = snapshot
-  })
-
-  void hydrateRuntimeSnapshot().then((snapshot) => {
     runtimeSnapshot.value = snapshot
   })
 })
@@ -357,23 +352,10 @@ function movePreview(step: number) {
 }
 
 function buildRuntimeQueue(): PlaybackQueueItem[] {
-  if (selectedAudioFiles.value.length > 0) {
-    return selectedAudioFiles.value.map((file) => {
-      const sourcePath = normalizeJoin(form.value.targetBaseDir, file.relativePath)
-
-      return {
-        id: file.id,
-        label: file.relativePath,
-        url: URL.createObjectURL(file.sourceFile),
-        sourcePath,
-      }
-    })
-  }
-
-  return selectedItems.value.map((item) => ({
-    id: item.id,
-    label: item.name,
-    sourcePath: item.path,
+  return selectedAudioFiles.value.map((file) => ({
+    id: file.id,
+    label: file.relativePath,
+    url: URL.createObjectURL(file.sourceFile),
   }))
 }
 
