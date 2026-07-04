@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { faFilter, faAngleLeft } from '@fortawesome/free-solid-svg-icons'
+import { faAngleLeft } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-
-const emit = defineEmits<{
-  openFilter: []
-}>()
 
 const route = useRoute()
 const router = useRouter()
@@ -27,14 +23,9 @@ const title = computed(() => {
 })
 
 const canGoBack = computed(() => route.name !== 'home')
-const canOpenFilter = computed(() => route.name !== 'config-detail' && route.name !== 'settings')
 
 function goBack() {
   router.back()
-}
-
-function openFilter() {
-  emit('openFilter')
 }
 </script>
 
@@ -58,19 +49,10 @@ function openFilter() {
         </h1>
       </div>
 
-      <div class="flex h-10 w-10 items-center justify-center">
-        <button
-          v-if="canOpenFilter"
-          type="button"
-          class="btn btn-circle h-10 min-h-10 w-10 border border-base-300 bg-white/80 p-0 text-base-content shadow-none"
-          @click="openFilter"
-        >
-          <FontAwesomeIcon :icon="faFilter" />
-        </button>
-      </div>
+      <div class="flex h-10 w-10 items-center justify-center"></div>
     </div>
     <div class="mx-auto mt-1 flex w-full max-w-md justify-center">
-      <p class="text-[0.65rem] font-medium uppercase tracking-[0.26em] text-base-content/45">Sound App</p>
+      <p class="text-[0.65rem] font-medium uppercase tracking-[0.26em] text-base-content/45">Sound Up</p>
     </div>
   </header>
 </template>

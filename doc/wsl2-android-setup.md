@@ -145,11 +145,19 @@ Symptom:
 adb: insufficient permissions for device
 ```
 
-Temporary fix for current USB node:
+The USB device path changes every time the device is reattached. First find the current path:
 
 ```bash
-sudo chgrp plugdev /dev/bus/usb/001/003
-sudo chmod 660 /dev/bus/usb/001/003
+lsusb | grep -Ei "18d1|google|pixel"
+# Example output: Bus 001 Device 004: ID 18d1:4ee7 Google Inc. ...
+#                          ^^^^^^^^^ use these numbers below
+```
+
+Then fix permissions using the correct bus and device numbers:
+
+```bash
+sudo chgrp plugdev /dev/bus/usb/001/004   # replace 004 with your device number
+sudo chmod 660 /dev/bus/usb/001/004
 adb kill-server
 adb start-server
 adb devices -l

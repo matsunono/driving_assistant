@@ -16,6 +16,19 @@ const pendingDelete = ref<{ configId: string; configName: string } | null>(null)
 const projectId = computed(() => String(route.params.projectId ?? ''))
 const project = computed(() => projectStore.projects.find((item) => item.id === projectId.value) ?? null)
 
+function createConfig() {
+  if (!project.value) {
+    return
+  }
+
+  const nextIndex = project.value.configs.length + 1
+  const config = projectStore.createConfigForProject(projectId.value, `設定ファイル${nextIndex}`)
+
+  if (config) {
+    router.push(`/projects/${projectId.value}/configs/${config.id}`)
+  }
+}
+
 function openConfig(configId: string) {
   router.push(`/projects/${projectId.value}/configs/${configId}`)
 }
@@ -45,18 +58,26 @@ function confirmDeleteConfig() {
 <template>
   <section v-if="project" class="mx-auto flex w-full max-w-md flex-col gap-4">
     <div class="rounded-[28px] border border-base-300 bg-white/88 p-4 shadow-[0_18px_45px_rgba(28,24,19,0.12)] backdrop-blur">
-      <p class="text-sm text-base-content/40">Files</p>
-      <h2 class="mt-1 text-xl font-bold text-base-content">{{ project.name }}</h2>
-      <p class="mt-1 text-sm text-base-content/45">設定ファイル一覧</p>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-sm text-base-content/40">Files</p>
+          <h2 class="mt-1 text-xl font-bold text-base-content">{{ project.name }}</h2>
+          <p class="mt-1 text-sm text-base-content/45">設定ファイル一覧</p>
+        </div>
+
+        <button type="button" class="btn btn-neutral rounded-full px-4 text-sm font-bold shadow-sm" @click="createConfig">
+          新規作成
+        </button>
+      </div>
 
       <div class="mt-4 space-y-3">
         <button
-        v-for="config in project.configs"
-        :key="config.id"
-        type="button"
-        class="flex w-full items-start gap-3 rounded-2xl border border-base-300 bg-white px-3 py-3 text-left"
-        @click="openConfig(config.id)"
-      >
+          v-for="config in project.configs"
+          :key="config.id"
+          type="button"
+          class="flex w-full items-start gap-3 rounded-2xl border border-base-300 bg-white px-3 py-3 text-left"
+          @click="openConfig(config.id)"
+        >
           <span class="pt-1 text-base-content/70">
             <FontAwesomeIcon :icon="faStar" class="text-sm" />
           </span>
@@ -72,7 +93,7 @@ function confirmDeleteConfig() {
                 <input
                   :checked="config.enabled"
                   type="checkbox"
-                  class="toggle toggle-sm "
+                  class="toggle toggle-sm"
                   @click.stop
                   @change="toggleConfigEnabled(config.id)"
                 />
@@ -80,7 +101,7 @@ function confirmDeleteConfig() {
             </div>
             <p class="mt-1 text-sm text-base-content/45">{{ config.description }}</p>
           </div>
-      </button>
+        </button>
       </div>
     </div>
 
