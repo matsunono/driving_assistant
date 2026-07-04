@@ -36,12 +36,9 @@ const engineStartMock = vi.fn(async (_options: unknown) => ({
   errorMessage: null,
 }))
 
-const pluginAvailableMock = vi.fn((_name: string) => false)
-
 vi.mock('../../plugins/capacitor', () => ({
   isNativePlatform: () => true,
   isAndroidPlatform: () => true,
-  isPluginAvailable: (name: string) => pluginAvailableMock(name),
 }))
 
 vi.mock('../../plugins/nativePlayback', () => ({
@@ -84,16 +81,14 @@ vi.mock('../playbackEngine', () => ({
   },
 }))
 
-describe('playbackRuntime native plugin availability', () => {
+describe('playbackRuntime native execution', () => {
   beforeEach(() => {
     nativeStartMock.mockClear()
     nativeSnapshotMock.mockClear()
     engineStartMock.mockClear()
-    pluginAvailableMock.mockClear()
-    pluginAvailableMock.mockReturnValue(false)
   })
 
-  it('falls back to web engine when NativePlayback is unavailable', async () => {
+  it('uses native runtime on Android native platform', async () => {
     const { startRuntime } = await import('../playbackRuntime')
 
     const result = await startRuntime({
@@ -105,17 +100,19 @@ describe('playbackRuntime native plugin availability', () => {
       queue: [{ id: '1', label: 'a', sourcePath: '/a.wav' }],
     })
 
-    expect(pluginAvailableMock).toHaveBeenCalledWith('NativePlayback')
-    expect(nativeStartMock).not.toHaveBeenCalled()
-    expect(engineStartMock).toHaveBeenCalledTimes(1)
+    expect(nativeStartMock).toHaveBeenCalledTimes(1)
+    expect(engineStartMock).not.toHaveBeenCalled()
     expect(result.running).toBe(true)
   })
 
-  it('uses native runtime when NativePlayback is available', async () => {
-    pluginAvailableMock.mockReturnValue(true)
+  it('returns error snapshot when native start throws', async () => {
+    nativeStartMock.mockImplementationOnce(async () => {
+      throw new Error('NativePlayback plugin is not implemented on android')
+    })
+
     const { startRuntime } = await import('../playbackRuntime')
 
-    await startRuntime({
+    const result = await startRuntime({
       configId: 'cfg',
       configName: 'config',
       timerType: 'timer',
@@ -125,5 +122,7 @@ describe('playbackRuntime native plugin availability', () => {
     })
 
     expect(nativeStartMock).toHaveBeenCalledTimes(1)
+    expect(result.running).toBe(false)
+    expect(result.errorMessage).toContain('NativePlayback plugin is not implemented on android')
   })
 })

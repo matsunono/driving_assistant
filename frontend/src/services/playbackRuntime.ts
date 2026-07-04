@@ -3,7 +3,7 @@ import {
   type PlaybackSnapshot,
   type StartPlaybackOptions,
 } from './playbackEngine'
-import { isAndroidPlatform, isNativePlatform, isPluginAvailable } from '../plugins/capacitor'
+import { isAndroidPlatform, isNativePlatform } from '../plugins/capacitor'
 import { NativePlayback } from '../plugins/nativePlayback'
 
 type SnapshotListener = (snapshot: PlaybackSnapshot) => void
@@ -24,7 +24,7 @@ function publish(nextSnapshot?: PlaybackSnapshot) {
 }
 
 function hasNativeRuntime() {
-  return isNativePlatform() && isAndroidPlatform() && isPluginAvailable('NativePlayback')
+  return isNativePlatform() && isAndroidPlatform()
 }
 
 function delay(ms: number) {

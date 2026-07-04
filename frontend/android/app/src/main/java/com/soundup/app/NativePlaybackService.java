@@ -9,6 +9,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
@@ -55,6 +58,11 @@ public class NativePlaybackService extends Service {
     private int intervalMinutes = 1;
     private String alarmTime;
     private PowerManager.WakeLock wakeLock;
+    private AudioManager audioManager;
+    private AudioFocusRequest audioFocusRequest;
+    private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = focusChange -> {
+        // No-op for now. We only use transient ducking while the short voice clip is playing.
+    };
 
     public static void setEmitter(@Nullable NativePlaybackEmitter nextEmitter) {
         emitter = nextEmitter;
@@ -78,6 +86,7 @@ public class NativePlaybackService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        initAudioFocus();
         initWakeLock();
         restoreState();
         if (snapshot.running) {
@@ -223,7 +232,9 @@ public class NativePlaybackService extends Service {
             snapshot.lastPlayedLabel = label;
             snapshot.errorMessage = null;
         } else {
-            snapshot.errorMessage = "音声再生に失敗しました";
+            if (snapshot.errorMessage == null || snapshot.errorMessage.trim().isEmpty()) {
+                snapshot.errorMessage = "音声再生に失敗しました";
+            }
         }
 
         scheduleNextFromCurrentState();
@@ -282,6 +293,7 @@ public class NativePlaybackService extends Service {
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setOnCompletionListener(player -> {
                 player.reset();
+                abandonDuckingFocus();
             });
 
             if (path.startsWith("content://") || path.startsWith("file://")) {
@@ -291,10 +303,23 @@ public class NativePlaybackService extends Service {
             }
 
             mediaPlayer.prepare();
+
+            if (!requestDuckingFocus()) {
+                snapshot.errorMessage = "音声再生に失敗しました (AudioFocus取得不可) path=" + path;
+                releasePlayer();
+                return false;
+            }
+
             mediaPlayer.start();
             snapshot.lastPlayedLabel = label;
             return true;
         } catch (Exception e) {
+            String reason = e.getClass().getSimpleName();
+            String detail = e.getMessage();
+            if (detail != null && !detail.trim().isEmpty()) {
+                reason = reason + ": " + detail;
+            }
+            snapshot.errorMessage = "音声再生に失敗しました (" + reason + ") path=" + path;
             releasePlayer();
             return false;
         }
@@ -379,12 +404,66 @@ public class NativePlaybackService extends Service {
     private void releasePlayer() {
         if (mediaPlayer != null) {
             try {
-                mediaPlayer.stop();
-            } catch (Exception ignored) {
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+            } catch (IllegalStateException ignored) {
             }
             mediaPlayer.release();
             mediaPlayer = null;
         }
+
+        abandonDuckingFocus();
+    }
+
+    private void initAudioFocus() {
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+    }
+
+    private boolean requestDuckingFocus() {
+        if (audioManager == null) {
+            return true;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (audioFocusRequest == null) {
+                audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(
+                        new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build()
+                    )
+                    .setAcceptsDelayedFocusGain(false)
+                    .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                    .build();
+            }
+
+            int result = audioManager.requestAudioFocus(audioFocusRequest);
+            return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        }
+
+        int result = audioManager.requestAudioFocus(
+            audioFocusChangeListener,
+            AudioManager.STREAM_MUSIC,
+            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+        );
+        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+    }
+
+    private void abandonDuckingFocus() {
+        if (audioManager == null) {
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (audioFocusRequest != null) {
+                audioManager.abandonAudioFocusRequest(audioFocusRequest);
+            }
+            return;
+        }
+
+        audioManager.abandonAudioFocus(audioFocusChangeListener);
     }
 
     private void notifySnapshotChanged() {
