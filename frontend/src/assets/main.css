@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: soundup --default, cupcake;
+  themes: all;
 }
 
 @plugin "daisyui/theme" {

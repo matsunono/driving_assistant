@@ -4,11 +4,24 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'
+import { useTheme } from './composable/useTheme'
 import router from './router'
+import { useProjectStore } from './stores/project'
 
-const app = createApp(App)
+async function bootstrap() {
+  const { initTheme } = useTheme()
+  initTheme()
 
-app.use(createPinia())
-app.use(router)
+	const app = createApp(App)
+	const pinia = createPinia()
 
-app.mount('#app')
+	app.use(pinia)
+
+	const projectStore = useProjectStore(pinia)
+	await projectStore.hydrateProjects()
+
+	app.use(router)
+	app.mount('#app')
+}
+
+void bootstrap()
