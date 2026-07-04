@@ -300,6 +300,10 @@ function normalizeJoin(baseDir: string, relativePath: string) {
   return `${normalizedBase}/${normalizedRelative}`
 }
 
+function isNonNull<T>(value: T | null): value is T {
+  return value !== null
+}
+
 function stopPreview() {
   if (!previewAudio.value) {
     isPreviewPlaying.value = false
@@ -352,11 +356,40 @@ function movePreview(step: number) {
 }
 
 function buildRuntimeQueue(): PlaybackQueueItem[] {
-  return selectedAudioFiles.value.map((file) => ({
-    id: file.id,
-    label: file.relativePath,
-    url: URL.createObjectURL(file.sourceFile),
-  }))
+  if (selectedAudioFiles.value.length > 0) {
+    return selectedAudioFiles.value
+      .map<PlaybackQueueItem | null>((file) => {
+        const sourcePath = hasValidBaseDir.value
+          ? normalizeJoin(form.value.targetBaseDir, file.relativePath)
+          : undefined
+
+        return {
+          id: file.id,
+          label: file.relativePath,
+          sourcePath,
+          // Use a dedicated URL for runtime playback so preview URL revocation on page unmount
+          // does not break already-started playback schedules.
+          url: URL.createObjectURL(file.sourceFile),
+        }
+      })
+      .filter(isNonNull)
+  }
+
+  const entries = parseTargetPathEntries(form.value.targetPath)
+  return entries
+    .map<PlaybackQueueItem | null>((path, index) => {
+      const sourcePath = path.trim()
+      if (!sourcePath) {
+        return null
+      }
+
+      return {
+        id: `saved-path-${index}`,
+        label: extractFileName(sourcePath),
+        sourcePath,
+      }
+    })
+    .filter(isNonNull)
 }
 
 function buildIntervalMinutes() {
@@ -364,6 +397,18 @@ function buildIntervalMinutes() {
   const minutes = Math.max(0, Math.trunc(form.value.intervalMinutes))
   const totalMinutes = hours * 60 + minutes
   return Math.max(1, totalMinutes)
+}
+
+function toRuntimeErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (typeof error === 'string' && error.trim()) {
+    return error
+  }
+
+  return fallback
 }
 
 async function startRuntimeSchedule() {
@@ -381,6 +426,11 @@ async function startRuntimeSchedule() {
     return
   }
 
+  if (selectedAudioFiles.value.length > 0 && !hasValidBaseDir.value) {
+    runtimeMessage.value = '再生対象を追加した場合は保存先ベースを入力してください'
+    return
+  }
+
   const queue = buildRuntimeQueue()
   if (queue.length === 0) {
     runtimeMessage.value = '再生対象が未選択のため開始できません'
@@ -390,30 +440,34 @@ async function startRuntimeSchedule() {
   const currentConfig = config.value
   const currentProject = project.value
 
-  runtimeSnapshot.value = await startRuntime({
-    configId: currentConfig.id,
-    configName: currentConfig.name,
-    timerType: form.value.timerType,
-    intervalMinutes: buildIntervalMinutes(),
-    alarmTime: form.value.timerType === 'alarm' ? buildAlarmTimeIso() : undefined,
-    playbackMode: form.value.playbackMode,
-    queue,
-    onPlayed: ({ label, result }) => {
-      playbackStore.finishPlaying({
-        projectId: currentProject?.id ?? '',
-        configId: currentConfig.id,
-        title: label,
-        result,
-      })
-    },
-  })
+  try {
+    runtimeSnapshot.value = await startRuntime({
+      configId: currentConfig.id,
+      configName: currentConfig.name,
+      timerType: form.value.timerType,
+      intervalMinutes: buildIntervalMinutes(),
+      alarmTime: form.value.timerType === 'alarm' ? buildAlarmTimeIso() : undefined,
+      playbackMode: form.value.playbackMode,
+      queue,
+      onPlayed: ({ label, result }) => {
+        playbackStore.finishPlaying({
+          projectId: currentProject?.id ?? '',
+          configId: currentConfig.id,
+          title: label,
+          result,
+        })
+      },
+    })
 
-  if (runtimeSnapshot.value.running) {
-    runtimeMessage.value = '再生スケジュールを開始しました'
-    return
+    if (runtimeSnapshot.value.running) {
+      runtimeMessage.value = '再生スケジュールを開始しました'
+      return
+    }
+
+    runtimeMessage.value = runtimeSnapshot.value.errorMessage ?? '再生スケジュールの開始に失敗しました'
+  } catch (error) {
+    runtimeMessage.value = toRuntimeErrorMessage(error, '再生スケジュール開始時にエラーが発生しました')
   }
-
-  runtimeMessage.value = runtimeSnapshot.value.errorMessage ?? '再生スケジュールの開始に失敗しました'
 }
 
 async function triggerRuntimeNow() {
@@ -427,8 +481,12 @@ async function triggerRuntimeNow() {
     return
   }
 
-  runtimeSnapshot.value = await triggerRuntimeNowService()
-  runtimeMessage.value = runtimeSnapshot.value.errorMessage ?? '即時再生を実行しました'
+  try {
+    runtimeSnapshot.value = await triggerRuntimeNowService()
+    runtimeMessage.value = runtimeSnapshot.value.errorMessage ?? '即時再生を実行しました'
+  } catch (error) {
+    runtimeMessage.value = toRuntimeErrorMessage(error, '即時再生でエラーが発生しました')
+  }
 }
 
 function stopRuntimeSchedule() {

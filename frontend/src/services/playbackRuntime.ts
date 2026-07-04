@@ -3,7 +3,7 @@ import {
   type PlaybackSnapshot,
   type StartPlaybackOptions,
 } from './playbackEngine'
-import { isAndroidPlatform, isNativePlatform } from '../plugins/capacitor'
+import { isAndroidPlatform, isNativePlatform, isPluginAvailable } from '../plugins/capacitor'
 import { NativePlayback } from '../plugins/nativePlayback'
 
 type SnapshotListener = (snapshot: PlaybackSnapshot) => void
@@ -24,13 +24,25 @@ function publish(nextSnapshot?: PlaybackSnapshot) {
 }
 
 function hasNativeRuntime() {
-  return isNativePlatform() && isAndroidPlatform()
+  return isNativePlatform() && isAndroidPlatform() && isPluginAvailable('NativePlayback')
 }
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, ms)
   })
+}
+
+function toRuntimeErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (typeof error === 'string' && error.trim()) {
+    return error
+  }
+
+  return fallback
 }
 
 async function bindNativeListener() {
@@ -93,30 +105,45 @@ export function subscribeRuntimeSnapshot(listener: SnapshotListener) {
 
 export async function startRuntime(options: StartPlaybackOptions) {
   if (hasNativeRuntime()) {
-    await bindNativeListener()
-    const accepted = await NativePlayback.start({
-      configId: options.configId,
-      configName: options.configName,
-      timerType: options.timerType,
-      intervalMinutes: options.intervalMinutes,
-      alarmTime: options.alarmTime,
-      playbackMode: options.playbackMode,
-      queue: options.queue,
-    })
-    publish(accepted)
+    try {
+      await bindNativeListener()
+      const accepted = await NativePlayback.start({
+        configId: options.configId,
+        configName: options.configName,
+        timerType: options.timerType,
+        intervalMinutes: options.intervalMinutes,
+        alarmTime: options.alarmTime,
+        playbackMode: options.playbackMode,
+        queue: options.queue,
+      })
+      publish(accepted)
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const refreshed = await NativePlayback.getSnapshot()
-      publish(refreshed)
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const refreshed = await NativePlayback.getSnapshot()
+        publish(refreshed)
 
-      if (refreshed.running || refreshed.errorMessage) {
-        break
+        if (refreshed.running || refreshed.errorMessage) {
+          break
+        }
+
+        await delay(120)
       }
 
-      await delay(120)
+      return snapshot
+    } catch (error) {
+      publish({
+        running: false,
+        configId: options.configId,
+        configName: options.configName,
+        timerType: options.timerType,
+        queueSize: options.queue.length,
+        nextRunAt: null,
+        lastRunAt: snapshot.lastRunAt,
+        lastPlayedLabel: snapshot.lastPlayedLabel,
+        errorMessage: toRuntimeErrorMessage(error, 'ネイティブ再生の開始に失敗しました'),
+      })
+      return snapshot
     }
-
-    return snapshot
   }
 
   revokeRuntimeOwnedUrls()
@@ -139,8 +166,15 @@ export async function startRuntime(options: StartPlaybackOptions) {
 
 export async function triggerRuntimeNow() {
   if (hasNativeRuntime()) {
-    const next = await NativePlayback.triggerNow()
-    publish(next)
+    try {
+      const next = await NativePlayback.triggerNow()
+      publish(next)
+    } catch (error) {
+      publish({
+        ...snapshot,
+        errorMessage: toRuntimeErrorMessage(error, 'ネイティブ即時再生に失敗しました'),
+      })
+    }
     return snapshot
   }
 

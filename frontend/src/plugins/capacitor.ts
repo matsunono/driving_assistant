@@ -17,3 +17,7 @@ export function isIosPlatform() {
 export function isWebPlatform() {
   return platform === 'web'
 }
+
+export function isPluginAvailable(pluginName: string) {
+  return Capacitor.isPluginAvailable(pluginName)
+}
